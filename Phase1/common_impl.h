@@ -9,6 +9,7 @@
 #include <fcntl.h>
 
 /* autres includes (eventuellement) */
+#include <poll.h>
 
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
 
@@ -18,11 +19,11 @@ struct dsm_proc_conn  {
    int rank;
    /* a completer */
 };
-typedef struct dsm_proc_conn dsm_proc_conn_t; 
+typedef struct dsm_proc_conn dsm_proc_conn_t;
 
 /* definition du type des infos */
 /* d'identification des processus dsm */
-struct dsm_proc {   
+struct dsm_proc {
   pid_t pid;
   dsm_proc_conn_t connect_info;
 };
