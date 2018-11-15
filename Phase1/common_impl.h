@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 /* autres includes (eventuellement) */
 #include <poll.h>
