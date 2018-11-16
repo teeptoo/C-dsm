@@ -184,6 +184,7 @@ int main(int argc, char *argv[])
           if (poll_tubes[i].revents & POLLIN) {
             memset(buffer, 0, 256);
             buffer_cursor = buffer;
+            read_count = 0;
             do {
               if((read_count == -1) && (errno != EAGAIN) && (errno != EINTR)){ ERROR_EXIT("read"); }
               else
