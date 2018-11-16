@@ -41,7 +41,7 @@ int count_lines(FILE * file) {
 }
 
 void read_machine_file(FILE * file, char * machines[], int num_procs) {
-  // déclarations// ATTENTION bien modifier les numéros des descripteurs en dessous
+  // déclarations
   int i;
   char chaine[HOSTNAME_MAX_LENGTH];
   // mallocs
@@ -59,6 +59,7 @@ void free_machines(char * machines[], int num_procs) {
   int i;
   for (i = 0; i < num_procs; i++)
   free(machines[i]);
+  free(machines);
 }
 
 int main(int argc, char *argv[])
@@ -66,27 +67,38 @@ int main(int argc, char *argv[])
   if (argc < 3)
   usage();
   else {
-    /* déclarations */
+    /* déclarations pile */
     pid_t pid;
     struct sigaction sigchld_sigaction;
     int num_procs = 0;
+    int i;
+    int read_count;
+    int ret_pol;
+    char *arg_ssh[SSH_ARGS_MAX_COUNT];
 
     FILE *  machine_file = fopen("machine_file", "r");
     if(NULL == machine_file) { ERROR_EXIT("fopen:"); }
     num_procs = count_lines(machine_file);
 
-    char * machines[num_procs]; // TODO enlever tableaux dynamiques (à la fin)
-    char *arg_ssh[SSH_ARGS_MAX_COUNT]; // nombre arbitraire
-    char * buffer;
-    char * buffer_cursor;
-    int tubes_stdout[num_procs][2];
-    int tubes_stderr[num_procs][2];
+    /* déclarations pour tas */
+    char ** machines = NULL;
+    char * buffer = NULL;
+    char * buffer_cursor = NULL;
+    int ** tubes_stdout = NULL;
+    int ** tubes_stderr = NULL;
     struct pollfd poll_tubes[num_procs*2];
-    int i;
-    int read_count;
-    int ret_pol;
 
+    /* mallocs */
+    machines = malloc(sizeof(char *) * num_procs);
     buffer = malloc(256);
+    tubes_stdout = malloc(sizeof(int *)*num_procs);
+    for (i = 0; i < num_procs; i++) {
+      tubes_stdout[i] = malloc(sizeof(int)*2);
+    }
+    tubes_stderr = malloc(sizeof(int *)*num_procs);
+    for (i = 0; i < num_procs; i++) {
+      tubes_stderr[i] = malloc(sizeof(int)*2);
+    }
 
     /* Mise en place d'un traitant pour recuperer les fils zombies*/
     memset(&sigchld_sigaction, 0, sizeof(struct sigaction));
@@ -115,12 +127,13 @@ int main(int argc, char *argv[])
       pid = fork();
       if(pid == -1) ERROR_EXIT("fork");
       if (pid == 0) { /* fils */
-        close(STDOUT_FILENO);
-        close(STDERR_FILENO);
         /* redirection stdout */
+        close(STDOUT_FILENO);
         close(tubes_stdout[i][0]);
         dup(tubes_stdout[i][1]);
+
         /* redirection stderr */
+        close(STDERR_FILENO);
         close(tubes_stderr[i][0]);
         dup(tubes_stderr[i][1]);
 
@@ -164,13 +177,13 @@ int main(int argc, char *argv[])
     /* gestion des E/S : on recupere les caracteres */
     /* sur les tubes de redirection de stdout/stderr */
     memset(poll_tubes, 0, sizeof(struct pollfd)*num_procs*2);
-    for (i = 0; i < 2*num_procs; i++) {
-      poll_tubes[i].fd = tubes_stdout[i][0];
-      poll_tubes[i].events = POLLIN;
-      poll_tubes[i].revents = 0;
-      poll_tubes[num_procs+i].fd = tubes_stderr[i][0];
-      poll_tubes[num_procs+i].events = POLLIN;
-      poll_tubes[num_procs+i].revents = 0;
+    for (i = 0; i < num_procs; i++) {
+      poll_tubes[2*i].fd = tubes_stdout[i][0];
+      poll_tubes[2*i+1].fd = tubes_stderr[i][0];
+      poll_tubes[2*i].events = POLLIN;
+      poll_tubes[2*i+1].events = POLLIN;
+      poll_tubes[2*i].revents = 0;
+      poll_tubes[2*i+1].revents = 0;
     }
 
     while(1)
@@ -190,7 +203,7 @@ int main(int argc, char *argv[])
               else
                 buffer_cursor += read_count;
             } while ((read_count=read(poll_tubes[i].fd, buffer_cursor, 256)) != 0);
-            printf("[Sortie fd %i, machine %s] %s\n", i, machines[i], buffer);
+            printf("[Sortie fd %i, machine %s] %s\n", i, machines[i/num_procs], buffer);
             fflush(stdout);
           }
           if(poll_tubes[i].revents & POLLHUP) {
