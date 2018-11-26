@@ -213,7 +213,10 @@ int main(int argc, char *argv[])
       /* je recupere les infos sur les tubes de redirection
       jusqu'à ce qu'ils soient inactifs (ie fermes par les
       processus dsm ecrivains de l'autre cote ...) */
-      ret_pol = poll(poll_tubes, 2*num_procs, 100);
+      ret_pol = 0;
+      do {
+    	  ret_pol = poll(poll_tubes, 2*num_procs, 100);
+      } while ((ret_pol == -1) && (errno == EINTR));
       if (ret_pol > 0) {
         for (i = 0; i < 2*num_procs; i++) {
           if (poll_tubes[i].revents & POLLIN) {
@@ -226,11 +229,16 @@ int main(int argc, char *argv[])
             } while ((read_count == -1) && ((errno == EAGAIN) || (errno == EINTR)));
             if((read_count == -1) && (errno != EAGAIN) && (errno != EINTR)){ ERROR_EXIT("read"); }
 
-            printf("[Sortie fd %i, machine %s] %s", i, machines[i/num_procs], buffer);
+            if(i%2) // contenu sur stderr
+            	printf("[stderr sur %s] %s", machines[i/num_procs], buffer);
+            else // contenu sur stdout
+            	printf("[stdout sur %s] %s", machines[i/num_procs], buffer);
             fflush(stdout);
           }
           else if(poll_tubes[i].revents & POLLHUP) {
-            poll_tubes[i].fd = -1; // on retire le tube du poll
+        	printf("[fermeture tube %i]\n", i);
+        	fflush(stdout);
+            poll_tubes[i].fd = -1; // on retire le tube du poll en l'ignorant (norme POSIX)
           }
         }
       }
@@ -241,13 +249,15 @@ int main(int argc, char *argv[])
     /* on attend les processus fils */
 
     /* on ferme les descripteurs proprement */
-
-    /* on ferme la socket d'ecoute */
     free(buffer);
-    free_machines(machines, num_procs);
     free_tubes(tubes_stdout, num_procs);
     free_tubes(tubes_stderr, num_procs);
     free(poll_tubes);
+
+    /* on ferme la socket d'ecoute */
+
+    /* on ferme les autres mallocs */
+    free_machines(machines, num_procs);
   }
   exit(EXIT_SUCCESS);
 }
