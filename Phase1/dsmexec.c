@@ -2,6 +2,7 @@
 
 /* variables globales */
 #define HOSTNAME_MAX_LENGTH 255 // norme POSIX
+#define BUFFER_LENGTH 256
 #define SSH_ARGS_MAX_COUNT 20
 
 /* un tableau gerant les infos d'identification */
@@ -58,14 +59,14 @@ void read_machine_file(FILE * file, char * machines[], int num_procs) {
 void free_machines(char * machines[], int num_procs) {
   int i;
   for (i = 0; i < num_procs; i++)
-  free(machines[i]);
+	  free(machines[i]);
   free(machines);
 }
 
 int main(int argc, char *argv[])
 {
   if (argc < 3)
-  usage();
+	  usage();
   else {
     /* déclarations pile */
     pid_t pid;
@@ -90,15 +91,15 @@ int main(int argc, char *argv[])
 
     /* mallocs */
     machines = malloc(sizeof(char *) * num_procs);
-    buffer = malloc(256);
+    buffer = malloc(BUFFER_LENGTH);
+
     tubes_stdout = malloc(sizeof(int *)*num_procs);
-    for (i = 0; i < num_procs; i++) {
+    for (i = 0; i < num_procs; i++)
       tubes_stdout[i] = malloc(sizeof(int)*2);
-    }
+
     tubes_stderr = malloc(sizeof(int *)*num_procs);
-    for (i = 0; i < num_procs; i++) {
+    for (i = 0; i < num_procs; i++)
       tubes_stderr[i] = malloc(sizeof(int)*2);
-    }
 
     /* Mise en place d'un traitant pour recuperer les fils zombies*/
     memset(&sigchld_sigaction, 0, sizeof(struct sigaction));
@@ -195,15 +196,16 @@ int main(int argc, char *argv[])
       if (ret_pol > 0) {
         for (i = 0; i < 2*num_procs; i++) {
           if (poll_tubes[i].revents & POLLIN) {
-            memset(buffer, 0, 256);
-            buffer_cursor = buffer;
+            memset(buffer, 0, BUFFER_LENGTH);
+            /* buffer_cursor = buffer;
             read_count = 0;
             do {
               if((read_count == -1) && (errno != EAGAIN) && (errno != EINTR)){ ERROR_EXIT("read"); }
               else
                 buffer_cursor += read_count;
-            } while ((read_count=read(poll_tubes[i].fd, buffer_cursor, 256)) != 0);
-            printf("[Sortie fd %i, machine %s] %s\n", i, machines[i/num_procs], buffer);
+            } while ((read_count=read(poll_tubes[i].fd, buffer_cursor, BUFFER_LENGTH-buffer_cursor)) != 0); */
+            read(poll_tubes[i].fd, buffer, BUFFER_LENGTH);
+            printf("[Sortie fd %i, machine %s] %s", i, machines[i/num_procs], buffer);
             fflush(stdout);
           }
           if(poll_tubes[i].revents & POLLHUP) {

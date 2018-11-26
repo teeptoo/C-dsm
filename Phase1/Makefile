@@ -15,6 +15,8 @@ EXECS = common.o dsmexec dsmwrap truc
 
 default: $(EXECS)
 
+all : $(EXECS)
+
 dsmexec: dsmexec.o common.o
 	$(CLINKER) $(OPTFLAGS) -o dsmexec dsmexec.o  common.o $(LIBS)
 	mv dsmexec ./bin
