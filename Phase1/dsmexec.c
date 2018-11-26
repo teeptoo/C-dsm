@@ -85,7 +85,9 @@ int main(int argc, char *argv[])
     int i;
     int read_count;
     int ret_pol;
-
+    int port = 0;
+    int sock;
+    int list;
     buffer = malloc(256);
 
     /* Mise en place d'un traitant pour recuperer les fils zombies*/
@@ -102,11 +104,17 @@ int main(int argc, char *argv[])
     fclose(machine_file);
 
     /* creation de la socket d'ecoute */
+     sock = creer_socket(0,&port);
+     printf("numero de sock %d et numb port %d\n\n",sock,port);
+     fflush(stdout);
+
     /* + ecoute effective */
+      list = listen(sock,num_procs);
+      if ( list == -1){ perror("erreur d'écoute");}
 
 
     /* creation des fils */
-    for(i = 0; i < num_procs ; i++) {
+      for(i = 0; i < num_procs ; i++) {
       /* creation du tube pour rediriger stdout */
       if(-1 == pipe(tubes_stdout[i])) { ERROR_EXIT("pipe:"); }
 
@@ -115,23 +123,34 @@ int main(int argc, char *argv[])
       pid = fork();
       if(pid == -1) ERROR_EXIT("fork");
       if (pid == 0) { /* fils */
-        close(STDOUT_FILENO);
-        close(STDERR_FILENO);
+      //  close(STDOUT_FILENO);
+      //  close(STDERR_FILENO);
         /* redirection stdout */
-        close(tubes_stdout[i][0]);
-        dup(tubes_stdout[i][1]);
+      //  close(tubes_stdout[i][0]);
+      //  dup(tubes_stdout[i][1]);
         /* redirection stderr */
-        close(tubes_stderr[i][0]);
-        dup(tubes_stderr[i][1]);
+        //close(tubes_stderr[i][0]);
+        //dup(tubes_stderr[i][1]);
 
         /* Creation du tableau d'arguments pour le ssh */
         memset(arg_ssh, 0, SSH_ARGS_MAX_COUNT*sizeof(char *));
-        arg_ssh[0] = "echo";
-        arg_ssh[1] = machines[i]; // execution machine
-        arg_ssh[2] = "~/echo";
-        arg_ssh[3] = machines[i]; // arg for echo programm
-        arg_ssh[4] = NULL;
 
+        arg_ssh[0] = "dsmwrapdfs";
+        arg_ssh[1] = machines[i]; // execution machine
+        arg_ssh[2] = "/net/t/andao001/prog_rsys/PR204/Phase1/bin/dsmwrap";
+        arg_ssh[3] = malloc(255);
+        ip(arg_ssh[3]);
+      arg_ssh[4] = malloc(255);
+       sprintf(arg_ssh[4],"%d",port);
+        // arg for echo programm
+        arg_ssh[5] = machines[i];
+        arg_ssh[6]= NULL ;
+      /*  memset(arg_ssh, 0, SSH_ARGS_MAX_COUNT*sizeof(char *));
+               arg_ssh[0] = "dsmwrap";
+               arg_ssh[1] = machines[i]; // execution machine
+               arg_ssh[2] = "/net/t/andao001/prog_rsys/PR204/Phase1/bin/dsmwrap";
+               arg_ssh[3] = machines[i]; // arg for echo programm
+       arg_ssh[4] = NULL;*/
         /* jump to new prog : */
         execvp("ssh", arg_ssh);
         break;
