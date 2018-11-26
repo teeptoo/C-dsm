@@ -83,6 +83,9 @@ int main(int argc, char *argv[])
     int read_count;
     int ret_pol;
     char *arg_ssh[SSH_ARGS_MAX_COUNT];
+    int port = 0;
+    int sock;
+    int list;
 
     FILE *  machine_file = fopen("machine_file", "r");
     if(NULL == machine_file) { ERROR_EXIT("fopen:"); }
@@ -124,11 +127,17 @@ int main(int argc, char *argv[])
     fclose(machine_file);
 
     /* creation de la socket d'ecoute */
+     sock = creer_socket(0,&port);
+     printf("numero de sock %d et numb port %d\n\n",sock,port);
+     fflush(stdout);
+
     /* + ecoute effective */
+      list = listen(sock,num_procs);
+      if ( list == -1){ perror("erreur d'écoute");}
 
 
     /* creation des fils */
-    for(i = 0; i < num_procs ; i++) {
+      for(i = 0; i < num_procs ; i++) {
       /* creation du tube pour rediriger stdout */
       if(-1 == pipe(tubes_stdout[i])) { ERROR_EXIT("pipe:"); }
 
@@ -161,12 +170,23 @@ int main(int argc, char *argv[])
 
         /* Creation du tableau d'arguments pour le ssh */
         memset(arg_ssh, 0, SSH_ARGS_MAX_COUNT*sizeof(char *));
-        arg_ssh[0] = "echo";
-        arg_ssh[1] = machines[i]; // execution machine
-        arg_ssh[2] = "~/echo";
-        arg_ssh[3] = machines[i]; // arg for echo programm
-        arg_ssh[4] = NULL;
 
+        arg_ssh[0] = "dsmwrapdfs";
+        arg_ssh[1] = machines[i]; // execution machine
+        arg_ssh[2] = "/net/t/andao001/prog_rsys/PR204/Phase1/bin/dsmwrap";
+        arg_ssh[3] = malloc(255);
+        ip(arg_ssh[3]);
+      arg_ssh[4] = malloc(255);
+       sprintf(arg_ssh[4],"%d",port);
+        // arg for echo programm
+        arg_ssh[5] = machines[i];
+        arg_ssh[6]= NULL ;
+      /*  memset(arg_ssh, 0, SSH_ARGS_MAX_COUNT*sizeof(char *));
+               arg_ssh[0] = "dsmwrap";
+               arg_ssh[1] = machines[i]; // execution machine
+               arg_ssh[2] = "/net/t/andao001/prog_rsys/PR204/Phase1/bin/dsmwrap";
+               arg_ssh[3] = machines[i]; // arg for echo programm
+       arg_ssh[4] = NULL;*/
         /* jump to new prog : */
         execvp("ssh", arg_ssh);
         break;
