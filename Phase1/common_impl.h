@@ -9,6 +9,11 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+ #include <netdb.h>
+
 
 /* autres includes (eventuellement) */
 #include <poll.h>

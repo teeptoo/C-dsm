@@ -11,6 +11,41 @@ dsm_proc_t *proc_array = NULL;
 
 /* le nombre de processus effectivement crees */
 volatile int num_procs_creat = 0;
+struct machine_proc{
+   int sock;
+    int pid ;
+    char * ip;
+    char *nom;
+    int port;
+    struct machine_proc *next;
+
+};
+
+    struct machine_proc *new_machine(int sock ,int pid, char * ip, char *nom,int port)
+    {
+          struct machine_proc *new = malloc(sizeof(new_machine));
+          new->sock = sock;
+          new->pid = pid;
+          new->ip = malloc(sizeof(char)*255);
+          new->nom = malloc(sizeof(char)*255);
+          strcpy(new->ip,ip);
+          strcpy(new->nom,nom);
+          new->port = port ;
+                   return new;
+
+
+    }
+    struct machine_proc *ajouter(struct machine_proc *BDD, struct machine_proc *ajout)
+    {
+
+      struct machine_proc *temp;
+      temp = BDD;
+      while ( temp->next !=NULL)
+      temp = temp-> next;
+      temp-> next = ajout;
+      ajout->next = NULL;
+      return BDD;
+    }
 
 void usage(void)
 {
@@ -40,6 +75,7 @@ int count_lines(FILE * file) {
   i++;
   return i;
 }
+
 
 void read_machine_file(FILE * file, char * machines[], int num_procs) {
   // déclarations
@@ -76,6 +112,8 @@ int main(int argc, char *argv[])
 	  usage();
   else {
     /* déclarations pile */
+    char * Ip = malloc(255);
+    ip(Ip);
     pid_t pid;
     struct sigaction sigchld_sigaction;
     int num_procs = 0;
@@ -86,6 +124,12 @@ int main(int argc, char *argv[])
     int port = 0;
     int sock;
     int list;
+    int fd;
+    char * name = malloc(sizeof(char)*255);
+    gethostname(name,strlen(name));
+    struct sockaddr_in sockaddr_cli;
+    socklen_t length=sizeof(struct sockaddr_in);
+
 
     FILE *  machine_file = fopen("machine_file", "r");
     if(NULL == machine_file) { ERROR_EXIT("fopen:"); }
@@ -130,7 +174,7 @@ int main(int argc, char *argv[])
      sock = creer_socket(0,&port);
      printf("numero de sock %d et numb port %d\n\n",sock,port);
      fflush(stdout);
-
+    struct machine_proc *BDD = new_machine(0,getpid(),Ip,name,port);
     /* + ecoute effective */
       list = listen(sock,num_procs);
       if ( list == -1){ perror("erreur d'écoute");}
@@ -171,9 +215,9 @@ int main(int argc, char *argv[])
         /* Creation du tableau d'arguments pour le ssh */
         memset(arg_ssh, 0, SSH_ARGS_MAX_COUNT*sizeof(char *));
 
-        arg_ssh[0] = "dsmwrapdfs";
+        arg_ssh[0] = "dsmwrap";
         arg_ssh[1] = machines[i]; // execution machine
-        arg_ssh[2] = "/net/t/andao001/prog_rsys/PR204/Phase1/bin/dsmwrap";
+        arg_ssh[2] = "~/PR204-master/Phase1/bin/dsmwrap";
         arg_ssh[3] = malloc(255);
         ip(arg_ssh[3]);
       arg_ssh[4] = malloc(255);
@@ -197,9 +241,13 @@ int main(int argc, char *argv[])
         close(tubes_stderr[i][1]);
       } // end else (père)
     } // end for créations processus
+
+
     for(i = 0; i < num_procs ; i++){
       /* on accepte les connexions des processus dsm */
-
+      fd = do_accept(sock,(struct sockaddr *)&sockaddr_cli, &length);
+      printf("\n acceptation ok %d\n",fd );
+      fflush(stdout);
       /*  On recupere le nom de la machine distante */
       /* 1- d'abord la taille de la chaine */
       /* 2- puis la chaine elle-meme */

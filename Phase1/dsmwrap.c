@@ -18,7 +18,7 @@ int main(int argc, char **argv)
 
 
   char *arg_truc[10];
-  arg_truc[0] = "~/prog_rsys/PR204/Phase1/bin/truc";
+  arg_truc[0] = "~/PR204-master/Phase1/bin/truc";
   sprintf(arg_truc[1],"%s",argv[3]);
   arg_truc[2] = NULL;
   /* processus intermediaire pour "nettoyer" */
@@ -28,12 +28,15 @@ int main(int argc, char **argv)
 
   /* creation d'une socket pour se connecter au */
   s = socket(domaine,type,protocol);
+
   int  serv = connect(s,(struct sockaddr *)&serv_addr,addr_len);
   if (serv != 0) { perror("echec de connexion");}
    else
-  printf("connexion avec la machine %s acceptée\n",argv[3]);
+  printf("connexion avec la machine %s  acceptée\n",argv[3]);
   fflush(stdout);
-  execv("~/truc",arg_truc);
+  while(1){}
+
+  //execv("~/truc",arg_truc);
 
    /* au lanceur et envoyer/recevoir les infos */
    /* necessaires pour la phase dsm_init */

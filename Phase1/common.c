@@ -1,5 +1,6 @@
 #include "common_impl.h"
 
+
 int creer_socket(int prop, int *port_num)
 {
   int fd = 0;
@@ -42,8 +43,6 @@ void ip(char *IP)
   sprintf( IP,"%s", inet_ntoa(**adr));
   }  }}}}
 
-
-  
   int send_message(int sock,char *buffer,int length){  // permet d'écrire sur la socket
   int a = send(sock,buffer,length,0);
   if (a==-1){
@@ -51,6 +50,18 @@ void ip(char *IP)
   }
   return a;
   }
+  int do_accept(int sock,struct sockaddr *addr,socklen_t* addrlen){ // accepte une connection
+    int accepted = accept(sock,addr,addrlen);
+    if(accepted==-1){
+      perror("Error while accecountpting client");
+      exit(EXIT_FAILURE);
+    }}
+
+
+
+
+    
+
 /* Vous pouvez ecrire ici toutes les fonctions */
 /* qui pourraient etre utilisees par le lanceur */
 /* et le processus intermediaire. N'oubliez pas */
