@@ -11,41 +11,39 @@ dsm_proc_t *proc_array = NULL;
 
 /* le nombre de processus effectivement crees */
 volatile int num_procs_creat = 0;
-struct machine_proc{
-   int sock;
-    int pid ;
-    char * ip;
-    char *nom;
-    int port;
-    struct machine_proc *next;
 
+/* structures */
+struct machine_proc {
+  int sock;
+  int pid;
+  char * ip;
+  char * nom;
+  int port;
+  struct machine_proc *next;
 };
 
-    struct machine_proc *new_machine(int sock ,int pid, char * ip, char *nom,int port)
-    {
-          struct machine_proc *new = malloc(sizeof(new_machine));
-          new->sock = sock;
-          new->pid = pid;
-          new->ip = malloc(sizeof(char)*255);
-          new->nom = malloc(sizeof(char)*255);
-          strcpy(new->ip,ip);
-          strcpy(new->nom,nom);
-          new->port = port ;
-                   return new;
+struct machine_proc *new_machine(int sock ,int pid, char * ip, char *nom,int port)
+{
+  struct machine_proc *new = malloc(sizeof(new_machine));
+  new->sock = sock;
+  new->pid = pid;
+  new->ip = malloc(sizeof(char)*20);
+  new->nom = malloc(sizeof(char)*HOSTNAME_MAX_LENGTH);
+  strcpy(new->ip, ip);
+  strcpy(new->nom, nom);
+  new->port = port;
+  return new;
+}
 
-
-    }
-    struct machine_proc *ajouter(struct machine_proc *BDD, struct machine_proc *ajout)
-    {
-
-      struct machine_proc *temp;
-      temp = BDD;
-      while ( temp->next !=NULL)
-      temp = temp-> next;
-      temp-> next = ajout;
-      ajout->next = NULL;
-      return BDD;
-    }
+void add_machine_to_list(struct machine_proc *machine_proc_list, struct machine_proc *ajout)
+{
+  struct machine_proc *temp;
+  temp = machine_proc_list;
+  while (temp->next != NULL)
+    temp = temp-> next;
+  temp->next = ajout;
+  ajout->next = NULL;
+}
 
 void usage(void)
 {
@@ -95,38 +93,34 @@ void read_machine_file(FILE * file, char * machines[], int num_procs) {
 void free_machines(char * machines[], int num_procs) {
   int i;
   for (i = 0; i < num_procs; i++)
-	  free(machines[i]);
+  free(machines[i]);
   free(machines);
 }
 
 void free_tubes(int ** tubes, int num_procs) {
-	int i;
-	for (i = 0; i < num_procs; i++)
-		  free(tubes[i]);
-	free(tubes);
+  int i;
+  for (i = 0; i < num_procs; i++)
+  free(tubes[i]);
+  free(tubes);
 }
 
 int main(int argc, char *argv[])
 {
   if (argc < 3)
-	  usage();
+  usage();
   else {
     /* déclarations pile */
-    char * Ip = malloc(255);
-    ip(Ip);
-    pid_t pid;
     struct sigaction sigchld_sigaction;
     int num_procs = 0;
     int i, j;
     int read_count;
     int ret_pol;
-    char *arg_ssh[SSH_ARGS_MAX_COUNT];
-    int port = 0;
-    int sock;
-    int list;
+    char * arg_ssh[SSH_ARGS_MAX_COUNT];
+    int current_machine_port = 0;
+    int current_machine_sock;
     int fd;
-    char * name = malloc(sizeof(char)*255);
-    gethostname(name,strlen(name));
+    pid_t current_machine_pid;
+
     struct sockaddr_in sockaddr_cli;
     socklen_t length=sizeof(struct sockaddr_in);
 
@@ -142,20 +136,21 @@ int main(int argc, char *argv[])
     int ** tubes_stdout = NULL;
     int ** tubes_stderr = NULL;
     struct pollfd * poll_tubes = NULL;
+    char * current_machine_ip = NULL;
+    char * current_machine_name = NULL;
 
     /* mallocs */
     machines = malloc(sizeof(char *) * num_procs);
     buffer = malloc(BUFFER_LENGTH);
-
     tubes_stdout = malloc(sizeof(int *)*num_procs);
     for (i = 0; i < num_procs; i++)
       tubes_stdout[i] = malloc(sizeof(int)*2);
-
     tubes_stderr = malloc(sizeof(int *)*num_procs);
     for (i = 0; i < num_procs; i++)
       tubes_stderr[i] = malloc(sizeof(int)*2);
-
     poll_tubes = malloc(sizeof(struct pollfd)*num_procs*2);
+    current_machine_ip = malloc(20);
+    current_machine_name = malloc(HOSTNAME_MAX_LENGTH);
 
     /* Mise en place d'un traitant pour recuperer les fils zombies*/
     memset(&sigchld_sigaction, 0, sizeof(struct sigaction));
@@ -171,17 +166,19 @@ int main(int argc, char *argv[])
     fclose(machine_file);
 
     /* creation de la socket d'ecoute */
-     sock = creer_socket(0,&port);
-     printf("numero de sock %d et numb port %d\n\n",sock,port);
-     fflush(stdout);
-    struct machine_proc *BDD = new_machine(0,getpid(),Ip,name,port);
+    gethostname(current_machine_name, strlen(current_machine_name));
+    return_current_ip(current_machine_ip);
+    sock = creer_socket(&current_machine_port);
+    printf("numero de sock %d et numb port %d\n",sock,current_machine_port);
+    fflush(stdout);
+    struct machine_proc *BDD = new_machine(0,getpid(),current_machine_ip,current_machine_name,current_machine_port);
     /* + ecoute effective */
-      list = listen(sock,num_procs);
-      if ( list == -1){ perror("erreur d'écoute");}
+    list = listen(sock,num_procs);
+    if ( list == -1){ perror("erreur d'écoute");}
 
 
     /* creation des fils */
-      for(i = 0; i < num_procs ; i++) {
+    for(i = 0; i < num_procs ; i++) {
       /* creation du tube pour rediriger stdout */
       if(-1 == pipe(tubes_stdout[i])) { ERROR_EXIT("pipe:"); }
 
@@ -197,8 +194,8 @@ int main(int argc, char *argv[])
 
         /* fermetures stdout des autres processus */
         for(j = 0; j < i ; j++) {
-        	close(tubes_stdout[j][0]);
-        	close(tubes_stdout[j][1]);
+          close(tubes_stdout[j][0]);
+          close(tubes_stdout[j][1]);
         }
 
         /* redirection stderr */
@@ -208,8 +205,8 @@ int main(int argc, char *argv[])
 
         /* fermetures stderr des autres processus */
         for(j = 0; j < i ; j++) {
-        	close(tubes_stdout[j][0]);
-        	close(tubes_stdout[j][1]);
+          close(tubes_stdout[j][0]);
+          close(tubes_stdout[j][1]);
         }
 
         /* Creation du tableau d'arguments pour le ssh */
@@ -219,19 +216,12 @@ int main(int argc, char *argv[])
         arg_ssh[1] = machines[i]; // execution machine
         arg_ssh[2] = "~/PR204-master/Phase1/bin/dsmwrap";
         arg_ssh[3] = malloc(255);
-        ip(arg_ssh[3]);
-      arg_ssh[4] = malloc(255);
-       sprintf(arg_ssh[4],"%d",port);
+        return_current_ip(arg_ssh[3]);
+        arg_ssh[4] = malloc(255);
+        sprintf(arg_ssh[4],"%d",port);
         // arg for echo programm
         arg_ssh[5] = machines[i];
         arg_ssh[6]= NULL ;
-      /*  memset(arg_ssh, 0, SSH_ARGS_MAX_COUNT*sizeof(char *));
-               arg_ssh[0] = "dsmwrap";
-               arg_ssh[1] = machines[i]; // execution machine
-               arg_ssh[2] = "/net/t/andao001/prog_rsys/PR204/Phase1/bin/dsmwrap";
-               arg_ssh[3] = machines[i]; // arg for echo programm
-       arg_ssh[4] = NULL;*/
-        /* jump to new prog : */
         execvp("ssh", arg_ssh);
         break;
       } else  if(pid > 0) { /* pere */
@@ -248,19 +238,19 @@ int main(int argc, char *argv[])
       int port_ssh;
       int pid_machine;
       char * ip_adress = malloc(255);
-    fd=  do_accept(sock,(struct sockaddr *)&sockaddr_cli, &length);
+      fd=  do_accept(sock,(struct sockaddr *)&sockaddr_cli, &length);
 
       /*  On recupere le nom de la machine distante */
       /* 1- d'abord la taille de la chaine */
       /* 2- puis la chaine elle-meme */
 
       /* On renum_procscupere le pid du processus distant  */
-         recv(fd,&pid_machine,sizeof(int),0);
-         recv_message(fd,ip_adress,255);
-         //send_message(fd,"ip recu",255);
+      recv(fd,&pid_machine,sizeof(int),0);
+      recv_message(fd,ip_adress,255);
+      //send_message(fd,"ip recu",255);
 
-        printf("Machine distante %s Pid : %d  Ip : %s\n",machines[i],pid_machine,ip_adress);
-        fflush(stdout);
+      printf("Machine distante %s Pid : %d  Ip : %s\n",machines[i],pid_machine,ip_adress);
+      fflush(stdout);
       /* On recupere le numero de port de la socket */
       /* d'ecoute des processus distants */
     }
@@ -290,7 +280,7 @@ int main(int argc, char *argv[])
       processus dsm ecrivains de l'autre cote ...) */
       ret_pol = 0;
       do {
-    	  ret_pol = poll(poll_tubes, 2*num_procs, 100);
+        ret_pol = poll(poll_tubes, 2*num_procs, 100);
       } while ((ret_pol == -1) && (errno == EINTR));
       if (ret_pol > 0) {
         for (i = 0; i < 2*num_procs; i++) {
@@ -305,20 +295,20 @@ int main(int argc, char *argv[])
             if((read_count == -1) && (errno != EAGAIN) && (errno != EINTR)){ ERROR_EXIT("read"); }
 
             if(i%2) // contenu sur stderr
-            	printf("[stderr sur %s] %s", machines[i/num_procs], buffer);
+            printf("[stderr sur %s] %s", machines[i/num_procs], buffer);
             else // contenu sur stdout
-            	printf("[stdout sur %s] %s", machines[i/num_procs], buffer);
+            printf("[stdout sur %s] %s", machines[i/num_procs], buffer);
             fflush(stdout);
           }
           else if(poll_tubes[i].revents & POLLHUP) {
-        	printf("[fermeture tube %i]\n", i);
-        	fflush(stdout);
+            printf("[fermeture tube %i]\n", i);
+            fflush(stdout);
             poll_tubes[i].fd = -1; // on retire le tube du poll en l'ignorant (norme POSIX)
           }
         }
       }
       else if (-1 == ret_pol)
-        ERROR_EXIT("poll");
+      ERROR_EXIT("poll");
     };
 
     /* on attend les processus fils */

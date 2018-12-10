@@ -1,7 +1,7 @@
 #include "common_impl.h"
 
 
-int creer_socket(int prop, int *port_num)
+int creer_socket(int * port_num)
 {
   int fd = 0;
   int domaine = AF_INET;
@@ -29,67 +29,68 @@ int creer_socket(int prop, int *port_num)
   fd  = s;
   return fd;
 }
-void ip(char *IP) // renvoie l'ip du serveur
+void return_current_ip (char *IP) // renvoie l'ip du serveur
 {
-  memset(IP,'\0',255);
+  memset(IP,'\0',20);
   char s[256];
   if (!gethostname(s, sizeof s))
-  {  {
-    struct hostent *host= gethostbyname(s);
-    if (host  != NULL)
-    {
-  struct in_addr **adr;
-  for (adr = (struct in_addr **)host->h_addr_list; *adr; adr++)
   {
-  sprintf( IP,"%s", inet_ntoa(**adr));
-  }  }}}}
+    struct hostent *host= gethostbyname(s);
+    if (host != NULL)
+    {
+      struct in_addr **adr;
+      for (adr = (struct in_addr **)host->h_addr_list; *adr; adr++)
+        sprintf(IP, "%s", inet_ntoa(**adr));
+    }
+  }
+}
   char* IP_machine()
 
   {
     char * IP = malloc(255);
-      memset(IP,'\0',255);
+    memset(IP,'\0',255);
     char s[256];
     if (!gethostname(s, sizeof s))
     {  {
       struct hostent *host= gethostbyname(s);
       if (host  != NULL)
       {
-    struct in_addr **adr;
-    for (adr = (struct in_addr **)host->h_addr_list; *adr; adr++)
-    {
-    sprintf( IP,"%s", inet_ntoa(**adr));
-    return IP;
-    }  }}}}
+        struct in_addr **adr;
+        for (adr = (struct in_addr **)host->h_addr_list; *adr; adr++)
+        {
+          sprintf( IP,"%s", inet_ntoa(**adr));
+          return IP;
+        }  }}}}
 
-  int send_message(int sock,char *buffer,int length){  // permet d'écrire sur la socket
-  int a = send(sock,buffer,length,0);
-  if (a==-1){
-    perror("erreur de send");
-  }
-  return a;
-  }
-  int do_accept(int sock,struct sockaddr *addr,socklen_t* addrlen){ // accepte une connection
-    int accepted = accept(sock,addr,addrlen);
-    if(accepted==-1){
-      perror("Error while accecountpting client");
-      exit(EXIT_FAILURE);
-    }}
-
-
-    int recv_message(int sock,char *buffer,int length){  // lit sur la socket
-      int a = recv(sock,buffer,length,0);
-      if (a==-1){
-        perror("erreur de recev");
+        int send_message(int sock,char *buffer,int length){  // permet d'écrire sur la socket
+        int a = send(sock,buffer,length,0);
+        if (a==-1){
+          perror("erreur de send");
+        }
+        return a;
       }
+      int do_accept(int sock,struct sockaddr *addr,socklen_t* addrlen){ // accepte une connection
+        int accepted = accept(sock,addr,addrlen);
+        if(accepted==-1){
+          perror("Error while accecountpting client");
+          exit(EXIT_FAILURE);
+        }}
 
 
-      return a;
-    }
+        int recv_message(int sock,char *buffer,int length){  // lit sur la socket
+          int a = recv(sock,buffer,length,0);
+          if (a==-1){
+            perror("erreur de recev");
+          }
+
+
+          return a;
+        }
 
 
 
-/* Vous pouvez ecrire ici toutes les fonctions */
-/* qui pourraient etre utilisees par le lanceur */
-/* et le processus intermediaire. N'oubliez pas */
-/* de declarer le prototype de ces nouvelles */
-/* fonctions dans common_impl.h */
+        /* Vous pouvez ecrire ici toutes les fonctions */
+        /* qui pourraient etre utilisees par le lanceur */
+        /* et le processus intermediaire. N'oubliez pas */
+        /* de declarer le prototype de ces nouvelles */
+        /* fonctions dans common_impl.h */
