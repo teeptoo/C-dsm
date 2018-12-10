@@ -245,15 +245,22 @@ int main(int argc, char *argv[])
 
     for(i = 0; i < num_procs ; i++){
       /* on accepte les connexions des processus dsm */
-      fd = do_accept(sock,(struct sockaddr *)&sockaddr_cli, &length);
-      printf("\n acceptation ok %d\n",fd );
-      fflush(stdout);
+      int port_ssh;
+      int pid_machine;
+      char * ip_adress = malloc(255);
+    fd=  do_accept(sock,(struct sockaddr *)&sockaddr_cli, &length);
+
       /*  On recupere le nom de la machine distante */
       /* 1- d'abord la taille de la chaine */
       /* 2- puis la chaine elle-meme */
 
       /* On renum_procscupere le pid du processus distant  */
+         recv(fd,&pid_machine,sizeof(int),0);
+         recv_message(fd,ip_adress,255);
+         //send_message(fd,"ip recu",255);
 
+        printf("Machine distante %s Pid : %d  Ip : %s\n",machines[i],pid_machine,ip_adress);
+        fflush(stdout);
       /* On recupere le numero de port de la socket */
       /* d'ecoute des processus distants */
     }

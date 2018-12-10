@@ -3,7 +3,7 @@
 
 int main(int argc, char **argv)
 {
-
+  int pid = getpid();
   int domaine = AF_INET;
   int type= SOCK_STREAM;
   int protocol= IPPROTO_TCP;
@@ -12,8 +12,9 @@ int main(int argc, char **argv)
   memset(& serv_addr,'\0',sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(atoi(argv[2]));
-
+  int s_ecoute;
   int s;
+
   inet_aton(argv[1],&serv_addr.sin_addr);
 
 
@@ -26,15 +27,17 @@ int main(int argc, char **argv)
 
   /* a la commande a executer vraiment */
 
+
   /* creation d'une socket pour se connecter au */
   s = socket(domaine,type,protocol);
-
+  s_ecoute = socket(domaine,type,protocol);
+  //port_giver(s);
   int  serv = connect(s,(struct sockaddr *)&serv_addr,addr_len);
   if (serv != 0) { perror("echec de connexion");}
    else
-  printf("connexion avec la machine %s  acceptée\n",argv[3]);
+  printf("connexion avec la machine %s  acceptée \n",argv[3]);
   fflush(stdout);
-  while(1){}
+
 
   //execv("~/truc",arg_truc);
 
@@ -45,13 +48,20 @@ int main(int argc, char **argv)
 
    /* Envoi du pid au lanceur */
 
+        send(s,&pid,sizeof(int),0);
+        send_message(s,IP_machine(),255);
    /* Creation de la socket d'ecoute pour les */
    /* connexions avec les autres processus dsm */
 
    /* Envoi du numero de port au lanceur */
    /* pour qu'il le propage à tous les autres */
    /* processus dsm */
+  // s_ecoute = creer_socket_ssh(0,&port);
+// char * IP = malloc(255);
+  //Ip(IP);
 
+
+  while(1){}
    /* on execute la bonne commande */
    return 0;
 }

@@ -29,8 +29,9 @@ int creer_socket(int prop, int *port_num)
   fd  = s;
   return fd;
 }
-void ip(char *IP)
+void ip(char *IP) // renvoie l'ip du serveur
 {
+  memset(IP,'\0',255);
   char s[256];
   if (!gethostname(s, sizeof s))
   {  {
@@ -42,6 +43,23 @@ void ip(char *IP)
   {
   sprintf( IP,"%s", inet_ntoa(**adr));
   }  }}}}
+  char* IP_machine()
+
+  {
+    char * IP = malloc(255);
+      memset(IP,'\0',255);
+    char s[256];
+    if (!gethostname(s, sizeof s))
+    {  {
+      struct hostent *host= gethostbyname(s);
+      if (host  != NULL)
+      {
+    struct in_addr **adr;
+    for (adr = (struct in_addr **)host->h_addr_list; *adr; adr++)
+    {
+    sprintf( IP,"%s", inet_ntoa(**adr));
+    return IP;
+    }  }}}}
 
   int send_message(int sock,char *buffer,int length){  // permet d'écrire sur la socket
   int a = send(sock,buffer,length,0);
@@ -58,9 +76,17 @@ void ip(char *IP)
     }}
 
 
+    int recv_message(int sock,char *buffer,int length){  // lit sur la socket
+      int a = recv(sock,buffer,length,0);
+      if (a==-1){
+        perror("erreur de recev");
+      }
 
 
-    
+      return a;
+    }
+
+
 
 /* Vous pouvez ecrire ici toutes les fonctions */
 /* qui pourraient etre utilisees par le lanceur */
