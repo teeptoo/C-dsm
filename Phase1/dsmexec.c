@@ -19,12 +19,13 @@ struct machine_proc {
   char * ip;
   char * nom;
   int port;
+  int rang;
   struct machine_proc *next;
 };
 
-struct machine_proc *new_machine(int sock ,int pid, char * ip, char *nom,int port)
+struct machine_proc *new_machine(int sock ,int pid, char * ip, char *nom,int port,int rang)
 {
-  struct machine_proc *new = malloc(sizeof(new_machine));
+  struct machine_proc *new = malloc(sizeof(struct machine_proc));
   new->sock = sock;
   new->pid = pid;
   new->ip = malloc(sizeof(char)*20);
@@ -32,6 +33,8 @@ struct machine_proc *new_machine(int sock ,int pid, char * ip, char *nom,int por
   strcpy(new->ip, ip);
   strcpy(new->nom, nom);
   new->port = port;
+  new->rang = rang;
+  new->next = NULL;
   return new;
 }
 
@@ -43,6 +46,15 @@ void add_machine_to_list(struct machine_proc *machine_proc_list, struct machine_
     temp = temp-> next;
   temp->next = ajout;
   ajout->next = NULL;
+}
+void display_machine(struct machine_proc *list){
+
+  while( list!= NULL){
+
+    printf("Machine : %s Pid : %d  Ip : %s  Port : %d Rang : %d\n",list->nom,list->pid,list->ip,list->port,list->rang);
+    fflush(stdout);
+    list = list->next;
+  }
 }
 
 void usage(void)
@@ -113,11 +125,13 @@ int main(int argc, char *argv[])
     struct sigaction sigchld_sigaction;
     int num_procs = 0;
     int i, j;
+    int pid;
     int read_count;
     int ret_pol;
     char * arg_ssh[SSH_ARGS_MAX_COUNT];
     int current_machine_port = 0;
     int current_machine_sock;
+    int listenning ;
     int fd;
     pid_t current_machine_pid;
 
@@ -166,15 +180,15 @@ int main(int argc, char *argv[])
     fclose(machine_file);
 
     /* creation de la socket d'ecoute */
-    gethostname(current_machine_name, strlen(current_machine_name));
+    gethostname(current_machine_name, HOSTNAME_MAX_LENGTH);
     return_current_ip(current_machine_ip);
-    sock = creer_socket(&current_machine_port);
-    printf("numero de sock %d et numb port %d\n",sock,current_machine_port);
-    fflush(stdout);
-    struct machine_proc *BDD = new_machine(0,getpid(),current_machine_ip,current_machine_name,current_machine_port);
+    current_machine_sock = creer_socket(&current_machine_port);
+
+    struct machine_proc *BDD = new_machine(0,getpid(),current_machine_ip,current_machine_name,current_machine_port,-1);
+
     /* + ecoute effective */
-    list = listen(sock,num_procs);
-    if ( list == -1){ perror("erreur d'écoute");}
+    listenning = listen(current_machine_sock,num_procs);
+    if ( listenning == -1){ perror("erreur d'écoute");}
 
 
     /* creation des fils */
@@ -218,7 +232,7 @@ int main(int argc, char *argv[])
         arg_ssh[3] = malloc(255);
         return_current_ip(arg_ssh[3]);
         arg_ssh[4] = malloc(255);
-        sprintf(arg_ssh[4],"%d",port);
+        sprintf(arg_ssh[4],"%d",current_machine_port);
         // arg for echo programm
         arg_ssh[5] = machines[i];
         arg_ssh[6]= NULL ;
@@ -237,24 +251,37 @@ int main(int argc, char *argv[])
       /* on accepte les connexions des processus dsm */
       int port_ssh;
       int pid_machine;
+      int machine_name_size;
+      char * machine_name= malloc(sizeof(char)*HOSTNAME_MAX_LENGTH) ;
       char * ip_adress = malloc(255);
-      fd=  do_accept(sock,(struct sockaddr *)&sockaddr_cli, &length);
+
+      fd=  do_accept(current_machine_sock,(struct sockaddr *)&sockaddr_cli, &length);
 
       /*  On recupere le nom de la machine distante */
       /* 1- d'abord la taille de la chaine */
+       send(fd,&i,sizeof(int),0);
+       recv(fd,&machine_name_size,sizeof(int),0);
+
+     recv_message(fd,machine_name,machine_name_size);
       /* 2- puis la chaine elle-meme */
 
       /* On renum_procscupere le pid du processus distant  */
       recv(fd,&pid_machine,sizeof(int),0);
+      recv(fd,&port_ssh,sizeof(int),0);
       recv_message(fd,ip_adress,255);
       //send_message(fd,"ip recu",255);
 
-      printf("Machine distante %s Pid : %d  Ip : %s\n",machines[i],pid_machine,ip_adress);
-      fflush(stdout);
+    /*  printf("Machine distante : %s Pid : %d  Ip : %s  Port : %d Rang : %d\n",machine_name,pid_machine,ip_adress,port_ssh,i);
+      fflush(stdout);*/
+    struct machine_proc *temp_new_machine=   new_machine(fd,pid_machine,ip_adress,machine_name,port_ssh,i);
+
+     add_machine_to_list(BDD,temp_new_machine);
+
       /* On recupere le numero de port de la socket */
       /* d'ecoute des processus distants */
     }
 
+   display_machine(BDD);
     /* envoi du nombre de processus aux processus free_machinesdsm*/
 
     /* envoi des rangs aux processus dsm */
@@ -295,9 +322,10 @@ int main(int argc, char *argv[])
             if((read_count == -1) && (errno != EAGAIN) && (errno != EINTR)){ ERROR_EXIT("read"); }
 
             if(i%2) // contenu sur stderr
-            printf("[stderr sur %s] %s", machines[i/num_procs], buffer);
+
+            printf("[stderr sur %s] %s", machines[i/2], buffer);
             else // contenu sur stdout
-            printf("[stdout sur %s] %s", machines[i/num_procs], buffer);
+            printf("[stdout sur %s] %s ", machines[i/2], buffer);
             fflush(stdout);
           }
           else if(poll_tubes[i].revents & POLLHUP) {

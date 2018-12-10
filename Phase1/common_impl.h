@@ -36,7 +36,7 @@ struct dsm_proc {
 };
 typedef struct dsm_proc dsm_proc_t;
 
-int creer_socket(int type, int *port_num);
+int creer_socket(int *port_num);
 void ip(char *IP);
 int send_message(int sock,char *buffer,int length);
 int do_accept(int sock,struct sockaddr *addr,socklen_t* addrlen);
