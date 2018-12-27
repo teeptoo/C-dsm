@@ -165,7 +165,6 @@ int main(int argc, char *argv[])
         int dsmwrap_argc; // nombres d'arguments après le machine_file + executable
         pid_t pid; // usage temporaire lors de la création des fils
         ssize_t read_count; // compteur lors de lecture avec des fonctions de type read/write
-        char * arg_ssh[SSH_ARGS_MAX_COUNT]; // tableau d'arguments qui sera transmis par SSH
         char current_machine_hostname[HOSTNAME_MAX_LENGTH];
         char sock_init_port_string[PORT_MAX_LENGTH]; // sock_init_port sous forme de chaine
         char hostname_temp[HOSTNAME_MAX_LENGTH]; // hostname reçu avant remplissage de la structure dsm_array
@@ -180,12 +179,14 @@ int main(int argc, char *argv[])
         char * buffer_cursor = NULL;
 
         /* déclarations pour tas avec futur malloc */
+        char ** arg_ssh; // tableau d'arguments qui sera transmis par SSH
         char ** machines = NULL; // liste des noms des machines distantes
         int ** tubes_stdout = NULL;
         int ** tubes_stderr = NULL;
         struct pollfd * poll_tubes = NULL;
 
         /* allocations */
+        arg_ssh = malloc(sizeof(char * ) * (argc + 6));
         machines = malloc(sizeof(char *) * num_procs);
         tubes_stdout = alloc_tubes(num_procs);
         tubes_stderr = alloc_tubes(num_procs);
@@ -247,7 +248,7 @@ int main(int argc, char *argv[])
                 /* Creation du tableau d'arguments pour le ssh */
                 /* execv args */
                 if(-1 == gethostname(current_machine_hostname, HOSTNAME_MAX_LENGTH) ) { ERROR_EXIT("gethostname"); }
-                memset(arg_ssh, 0, SSH_ARGS_MAX_COUNT * sizeof(char *));
+                memset(arg_ssh, 0, sizeof(char *) * (argc + 6));
                 arg_ssh[0] = "dsmwrap"; // pour commande execvp
                 arg_ssh[1] = machines[i]; // machine distante pour ssh
                 arg_ssh[2] = DSMWRAP_PATH; // chemin de dsmwrap supposé connu
@@ -376,6 +377,7 @@ int main(int argc, char *argv[])
         close(sock_init);
 
         /* on ferme les autres mallocs */
+        free(arg_ssh);
         free_machines(machines, num_procs);
         free_tubes(tubes_stdout, num_procs);
         free_tubes(tubes_stderr, num_procs);

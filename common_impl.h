@@ -23,7 +23,6 @@
 #define HOSTNAME_MAX_LENGTH 255 // norme POSIX
 #define PORT_MAX_LENGTH 6 // port maximal est 65535 (16bit non signé)
 #define BUFFER_LENGTH 512
-#define SSH_ARGS_MAX_COUNT 30
 
 /* definition du type des infos */
 /* de connexion des processus dsm */
