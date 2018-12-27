@@ -59,8 +59,8 @@ int main(int argc, char **argv)
     send_int(sock_init, dsmwrap_port);
 
     if(DEBUG) {
-        printf("Bonjour stdout.");
-        printf("Bonjour stderr.");
+        fprintf(stdout, "Bonjour stdout.\n");
+        fprintf(stderr, "Bonjour stderr.\n");
     }
 
     /* on execute la bonne commande */

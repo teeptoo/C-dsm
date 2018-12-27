@@ -16,14 +16,12 @@ void usage(void) {
 void sigchld_handler(int sig) {
     /* on traite les fils qui se terminent */
     /* pour eviter les zombies */
-    if(!DEBUG) {
     int status;
     do {
         waitpid(-1, &status, WNOHANG);
         --(*num_procs_creat);
         if(-1 == status) { ERROR_EXIT("waitpid"); }
     } while(status != 0);
-    }
 }
 
 int count_lines(FILE * file) {
@@ -251,6 +249,7 @@ int main(int argc, char *argv[])
 
             /* On affecte un rang définitif au processus  et on remplit dsm_array */
             rang_temp = get_rank_from_hostname_available(hostname_temp, num_procs);
+            dsm_array[rang_temp].rang = rang_temp;
             dsm_array[rang_temp].connect_info.conn_fd = fd_temp;
 
             /* On recupere le pid du processus distant  */
@@ -291,7 +290,6 @@ int main(int argc, char *argv[])
             /* je recupere les infos sur les tubes de redirection
             jusqu'à ce qu'ils soient inactifs (ie fermes par les
             processus dsm ecrivains de l'autre cote ...) */
-            ret_pol = 0;
             do {
                 ret_pol = poll(poll_tubes, (nfds_t)2*num_procs, 100);
             } while ((ret_pol == -1) && (errno == EINTR));
@@ -313,12 +311,12 @@ int main(int argc, char *argv[])
                         if(i%2) // contenu sur stderr
                             fprintf(stderr, "[stderr|%d|%s] %s", rang_temp, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
                         else // contenu sur stdout
-                            fprintf(stdout, "[stdout|%d|%s] %s ", rang_temp, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
+                            fprintf(stdout, "[stdout|%d|%s] %s", rang_temp, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
                         fflush(stdout);
                     }
 
                     else if(poll_tubes[i].revents & POLLHUP) {
-                        printf("[fermeture tube %i]\n", i);
+                        if(DEBUG) { printf("fermeture tube %i\n", i); }
                         fflush(stdout);
                         poll_tubes[i].fd = -1; // on retire le tube du poll en l'ignorant (norme POSIX)
                     } // end else if POLLHUP
