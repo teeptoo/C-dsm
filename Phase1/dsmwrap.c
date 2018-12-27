@@ -1,78 +1,68 @@
 #include "common_impl.h"
-#include <netdb.h>
+
+void check_localhost(char * dsmexec_hostname) {
+    /* vérifie si on est en local, si c'est le cas, dsmexec_hostname */
+    /* remplacé par localhost pour coincider avec le machine_file */
+    char mon_hostname[HOSTNAME_MAX_LENGTH];
+    gethostname(mon_hostname, HOSTNAME_MAX_LENGTH);
+    if(0 == strcmp(mon_hostname, dsmexec_hostname))
+        strcpy(dsmexec_hostname, "localhost");
+}
 
 int main(int argc, char **argv)
 {
-  int pid = getpid();
-  int domaine = AF_INET;
-  int type= SOCK_STREAM;
-  int protocol= IPPROTO_TCP;
-  struct sockaddr_in serv_addr;
-  int addr_len = sizeof(serv_addr);
-  memset(& serv_addr,'\0',sizeof(serv_addr));
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(atoi(argv[2]));
-  int s_ecoute;
-  int s;
-  int port = 0;
-  int rang;
-  int machine_name_size= strlen(argv[3]);
-//  int val = 100;
-   //char * val = malloc(255);
-  inet_aton(argv[1],&serv_addr.sin_addr);
+    /* processus intermediaire pour "nettoyer" */
+    /* la liste des arguments qu'on va passer */
+    /* a la commande a executer vraiment */
 
-/*  char *arg_truc[10];
-  arg_truc[0] = "~/PR204-master/Phase1/bin/truc";
-  sprintf(arg_truc[1],"%s",argv[3]);
-  arg_truc[2] = NULL;*/
-  /* processus intermediaire pour "nettoyer" */
-  /* la liste des arguments qu'on va passer */
+    /* déclarations */
+    struct sockaddr_in sockaddr_dsmexec; // pour la socket d'initialisation
+    pid_t pid = getpid();
+    int sock_init;
+    int sock_dsm;
+    int dsmexec_port;
+    int dsmwrap_port;
+    char dsmexec_ip[IP_LENGTH];
+    char dsmwrap_hostname[HOSTNAME_MAX_LENGTH];
 
-  /* a la commande a executer vraiment */
+    /* traitement des arguments reçus */
+    strcpy(dsmwrap_hostname, argv[1]);
+    dsmexec_port = atoi(argv[2]);
 
+    /* remplissage de sockaddr_dsmexec */
+    memset(&sockaddr_dsmexec, 0, sizeof(struct sockaddr_in));
+    resolve_hostname(dsmwrap_hostname, dsmexec_ip);
+    check_localhost(dsmwrap_hostname);
+    sockaddr_dsmexec.sin_family = AF_INET;
+    inet_aton(dsmexec_ip, &sockaddr_dsmexec.sin_addr);
+    sockaddr_dsmexec.sin_port = htons(dsmexec_port);
 
-  /* creation d'une socket pour se connecter au */
-  s = socket(domaine,type,protocol);
+    /* creation d'une socket pour se connecter au */
+    /* au lanceur et envoyer/recevoir les infos */
+    /* necessaires pour la phase dsm_init */
+    sock_init = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if(-1 == connect(sock_init, (struct sockaddr *)&sockaddr_dsmexec, sizeof(struct sockaddr_in))) { ERROR_EXIT("connect"); }
 
-  s_ecoute = creer_socket(&port);
-  int  serv = connect(s,(struct sockaddr *)&serv_addr,addr_len);
-  if (serv != 0) { perror("echec de connexion");}
-   else
+    /* Envoi du nom de machine au lanceur */
+    send_line(sock_init, dsmwrap_hostname);
 
+    /* Envoi du pid au lanceur */
+    send_int(sock_init, pid);
 
- recv(s,&rang,sizeof(int),0);
-  //execv("~/truc",arg_truc);
+    /* Creation de la socket d'ecoute pour les */
+    /* connexions avec les autres processus dsm */
+    sock_dsm = creer_socket(&dsmwrap_port);
 
-   /* au lanceur et envoyer/recevoir les infos */
+    /* Envoi du numero de port au lanceur */
+    /* pour qu'il le propage à tous les autres */
+    /* processus dsm */
+    send_int(sock_init, dsmwrap_port);
 
-   /* necessaires pour la phase dsm_init */
-
-   /* Envoi du nom de machine au lanceur */
-
-      send(s,&machine_name_size,sizeof(int),0);
-
-     send_message(s,argv[3],machine_name_size);
-   /* Envoi du pid au lanceur */
-
-        send(s,&pid,sizeof(int),0);
-        send(s,&port,sizeof(int),0);
-        send_message(s,IP_machine(),255);
-
-   /* Creation de la socket d'ecoute pour les */
-
-   /* connexions avec les autres processus dsm */
-
-   /* Envoi du numero de port au lanceur */
-   /* pour qu'il le propage à tous les autres */
-   /* processus dsm */
-  // s_ecoute = creer_socket_ssh(0,&port);
-// char * IP = malloc(255);
-  //Ip(IP);
-
-  printf("[Proc : %d] : connexion avec la machine %s acceptée \n",rang,argv[3]);
-  fflush(stdout);
-
-  while(1){}
-   /* on execute la bonne commande */
-   return 0;
+    /* on execute la bonne commande */
+    while(1) {
+        sleep(1);
+        break;
+    }
+    close(sock_init);
+    exit(EXIT_SUCCESS);
 }
