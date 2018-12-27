@@ -14,6 +14,11 @@ int main(int argc, char **argv)
     /* processus intermediaire pour "nettoyer" */
     /* la liste des arguments qu'on va passer */
     /* a la commande a executer vraiment */
+    if(DEBUG) {
+        printf("Args dsmwrap : prog final = %s\n", argv[3]);
+        for (int i = 0; i < (argc-4); ++i)
+            printf("arg[%d]=%s\n", i+4, argv[i+4]);
+    }
 
     /* déclarations */
     struct sockaddr_in sockaddr_dsmexec; // pour la socket d'initialisation

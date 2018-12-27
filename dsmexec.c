@@ -1,5 +1,7 @@
 #include "common_impl.h"
 
+#define DSMWRAP_PATH "/home/theo/PR204/bin/dsmwrap"
+
 /* un tableau gerant les infos d'identification */
 /* des processus dsm */
 dsm_proc_t *dsm_array = NULL;
@@ -11,6 +13,13 @@ void usage(void) {
     fprintf(stdout,"Usage : dsmexec machine_file executable arg1 arg2 ...\n");
     fflush(stdout);
     exit(EXIT_FAILURE);
+}
+
+void check_file_existence(char * path) {
+    if (-1 == access(path, F_OK)) {
+        fprintf(stderr, "Le chemin '%s' n'est pas correct.\n", path);
+        ERROR_EXIT("access");
+    }
 }
 
 void sigchld_handler(int sig) {
@@ -38,10 +47,9 @@ int count_lines(FILE * file) {
 void read_machine_file(FILE * file, char * machines[], int num_procs) {
     int i;
     char chaine[HOSTNAME_MAX_LENGTH];
-    for (i = 0; i < num_procs; i++)
-        machines[i] = malloc(sizeof(char) * HOSTNAME_MAX_LENGTH);
     // lecture fichier
     for (i = 0; i < num_procs; i++) {
+        machines[i] = malloc(sizeof(char) * HOSTNAME_MAX_LENGTH);
         fgets(chaine, HOSTNAME_MAX_LENGTH, file);
         chaine[strlen(chaine)-1] = '\0'; // enlever le \n
         strcpy(machines[i], chaine);
@@ -80,12 +88,20 @@ dsm_proc_t * alloc_dsm_array(int num_procs) {
     return array;
 }
 
-int * alloc_num_procs_creat() {
+void free_dsm_array(int num_procs) {
+    if(-1 == munmap(dsm_array, sizeof(dsm_proc_t) * num_procs)) { ERROR_EXIT("munmap"); }
+}
+
+int * alloc_num_procs_creat(void) {
     int * num;
     num = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if((void *) -1 == num) { ERROR_EXIT("mmap"); }
     *num = 0;
     return num;
+}
+
+void free_num_procs_creat(void) {
+    if(-1 == munmap(num_procs_creat, sizeof(int))) { ERROR_EXIT("munmap"); }
 }
 
 void close_tubes_autres_process(int ** tubes, int rang_actuel) {
@@ -94,6 +110,12 @@ void close_tubes_autres_process(int ** tubes, int rang_actuel) {
         close(tubes[i][0]);
         close(tubes[i][1]);
     }
+}
+
+void close_tous_tubes_lecture(int ** tubes, int num_procs) {
+    int i;
+    for (i = 0; i < num_procs; ++i)
+        close(tubes[i][0]);
 }
 
 int get_rank_from_hostname_available(char * hostname, int num_procs) {
@@ -116,20 +138,31 @@ int rang_tubes_to_rang(int rang_tube, int num_procs) {
     ERROR_EXIT("rang_tubes_to_rang"); // incohérence dans dsm_array
 }
 
+void close_fds_dsm_procs(int num_procs) {
+    int i;
+    for (i = 0; i < num_procs; ++i)
+        close(dsm_array[i].connect_info.conn_fd);
+}
+
 int main(int argc, char *argv[])
 {
     if (argc < 3)
         usage();
     else {
+        check_file_existence(DSMWRAP_PATH);
+        check_file_existence(argv[1]); // machine_file
+        check_file_existence(argv[2]); // executable
+
         /* déclarations pile */
         struct sigaction sigchld_sigaction; // pour traitant de signal sur SIGCHILD
         int num_procs = 0; // nombre de processus à créer
-        int i; // compteurs
+        int i, j; // compteurs
         int ret_pol; // code de retour du poll
         int sock_init; // socket d'initialisation
         int sock_init_port; // port attribué pour la socket d'initialisation
         int fd_temp; // descripteur de fichier stocké temporairement après le accept
         int rang_temp; // rang temporaire pour les accept et le poll
+        int dsmwrap_argc; // nombres d'arguments après le machine_file + executable
         pid_t pid; // usage temporaire lors de la création des fils
         ssize_t read_count; // compteur lors de lecture avec des fonctions de type read/write
         char * arg_ssh[SSH_ARGS_MAX_COUNT]; // tableau d'arguments qui sera transmis par SSH
@@ -157,6 +190,8 @@ int main(int argc, char *argv[])
         tubes_stdout = alloc_tubes(num_procs);
         tubes_stderr = alloc_tubes(num_procs);
         poll_tubes = malloc(sizeof(struct pollfd)*num_procs*2);
+
+        /* mémoires partagées */
         dsm_array = alloc_dsm_array(num_procs);
         num_procs_creat = alloc_num_procs_creat();
 
@@ -210,21 +245,23 @@ int main(int argc, char *argv[])
                 close_tubes_autres_process(tubes_stderr, i);
 
                 /* Creation du tableau d'arguments pour le ssh */
-                // TODO gérer les arguments du programme final
+                /* execv args */
                 if(-1 == gethostname(current_machine_hostname, HOSTNAME_MAX_LENGTH) ) { ERROR_EXIT("gethostname"); }
                 memset(arg_ssh, 0, SSH_ARGS_MAX_COUNT * sizeof(char *));
                 arg_ssh[0] = "dsmwrap"; // pour commande execvp
                 arg_ssh[1] = machines[i]; // machine distante pour ssh
-                arg_ssh[2] = "~/PR204/bin/dsmwrap"; // chemin de dsmwrap
-                // dsmwrap args
+                arg_ssh[2] = DSMWRAP_PATH; // chemin de dsmwrap supposé connu
+                /* dsmwrap args */
                 arg_ssh[3] = current_machine_hostname;
                 arg_ssh[4] = sock_init_port_string;
                 arg_ssh[5] = argv[2]; // programme final à executer
-                // program args
-                arg_ssh[6] = "Hello!";
-                // fin des args
-                arg_ssh[7]= NULL ; // pour commande execvp
-
+                /* program args */
+                for (j = 0; j < (argc-3); ++j) {
+                    arg_ssh[j+6] = argv[j+3];
+                }
+                /* fin args */
+                arg_ssh[j+7]= NULL ; // pour commande execvp
+                /* execution */
                 ++(*num_procs_creat);
                 execvp("ssh", arg_ssh);
                 break;
@@ -326,17 +363,28 @@ int main(int argc, char *argv[])
             else if (-1 == ret_pol) { ERROR_EXIT("poll"); }
         }; // end while(num_procs_creat)
 
-        /* on attend les processus fils */
+        /* flush des sorties */
         fflush(stdout);
+        fflush(stderr);
 
         /* on ferme les descripteurs proprement */
+        close_tous_tubes_lecture(tubes_stdout, num_procs);
+        close_tous_tubes_lecture(tubes_stderr, num_procs);
+        close_fds_dsm_procs(num_procs);
+
+        /* on ferme la socket d'ecoute */
+        close(sock_init);
+
+        /* on ferme les autres mallocs */
+        free_machines(machines, num_procs);
         free_tubes(tubes_stdout, num_procs);
         free_tubes(tubes_stderr, num_procs);
         free(poll_tubes);
-        /* on ferme la socket d'ecoute */
-        // TODO fermer la socket complètement
-        /* on ferme les autres mallocs */
-        free_machines(machines, num_procs);
+
+        /* on ferme les memoires partagées */
+        free_dsm_array(num_procs);
+        free_num_procs_creat();
+
     } // end if argc ok
     exit(EXIT_SUCCESS);
 }
