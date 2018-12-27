@@ -1,4 +1,2 @@
 *.o
-.idea/*
-bin/*
-cmake-build-debug/*
+Phase1/bin/*
