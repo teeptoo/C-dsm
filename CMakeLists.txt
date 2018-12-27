@@ -12,5 +12,6 @@ add_executable(PR204_cmake
         dsmwrap.c
         exemple.c)
 
-add_custom_target(PR204 COMMAND make -C ${PR204_SOURCE_DIR}
+add_custom_target(PR204 COMMAND make clean -C ${PR204_SOURCE_DIR}
+        COMMAND make -C ${PR204_SOURCE_DIR}
         CLION_EXE_DIR=${PROJECT_BINARY_DIR})
