@@ -1,6 +1,6 @@
 #include "common_impl.h"
 
-#define DSMWRAP_PATH "/home/theo/PR204/bin/dsmwrap"
+#define DSMWRAP_PATH "./bin/dsmwrap"
 
 /* un tableau gerant les infos d'identification */
 /* des processus dsm */
@@ -19,6 +19,13 @@ void check_file_existence(char * path) {
     if (-1 == access(path, F_OK)) {
         fprintf(stderr, "Le chemin '%s' n'est pas correct.\n", path);
         ERROR_EXIT("access");
+    }
+}
+
+void force_abs_path(char * path, char * abs_path) {
+    if(NULL == realpath(path, abs_path)) {
+        fprintf(stderr, "Le chemin '%s' n'a pas pu être résolu.\n", path);
+        ERROR_EXIT("realpath");
     }
 }
 
@@ -149,10 +156,6 @@ int main(int argc, char *argv[])
     if (argc < 3)
         usage();
     else {
-        check_file_existence(DSMWRAP_PATH);
-        check_file_existence(argv[1]); // machine_file
-        check_file_existence(argv[2]); // executable
-
         /* déclarations pile */
         struct sigaction sigchld_sigaction; // pour traitant de signal sur SIGCHILD
         int num_procs = 0; // nombre de processus à créer
@@ -164,12 +167,15 @@ int main(int argc, char *argv[])
         int rang_temp; // rang temporaire pour les accept et le poll
         pid_t pid; // usage temporaire lors de la création des fils
         ssize_t read_count; // compteur lors de lecture avec des fonctions de type read/write
+        char dsmwrap_abs_path[FILE_NAME_MAX_LENGTH];
+        char executable_abs_path[FILE_NAME_MAX_LENGTH];
         char current_machine_hostname[HOSTNAME_MAX_LENGTH];
-        char sock_init_port_string[PORT_MAX_LENGTH]; // sock_init_port sous forme de chaine
+        char sock_init_port_string[PORT_LENGTH]; // sock_init_port sous forme de chaine
         char hostname_temp[HOSTNAME_MAX_LENGTH]; // hostname reçu avant remplissage de la structure dsm_array
         char buffer[BUFFER_LENGTH];
 
         /* récupération du nombre de machines distantes */
+        check_file_existence(argv[1]); // machine_file
         FILE *  machine_file = fopen("machine_file", "r");
         if(NULL == machine_file) { ERROR_EXIT("fopen"); }
         num_procs = count_lines(machine_file);
@@ -194,6 +200,12 @@ int main(int argc, char *argv[])
         /* mémoires partagées */
         dsm_array = alloc_dsm_array(num_procs);
         num_procs_creat = alloc_num_procs_creat();
+
+        /* traitement des chemins */
+        force_abs_path(DSMWRAP_PATH, dsmwrap_abs_path);
+        check_file_existence(dsmwrap_abs_path);
+        force_abs_path(argv[2], executable_abs_path);
+        check_file_existence(executable_abs_path);
 
         /* Mise en place d'un traitant pour recuperer les fils zombies*/
         memset(&sigchld_sigaction, 0, sizeof(struct sigaction));
@@ -249,11 +261,11 @@ int main(int argc, char *argv[])
                 memset(arg_ssh, 0, sizeof(char *) * (argc + 6));
                 arg_ssh[0] = "dsmwrap"; // pour commande execvp
                 arg_ssh[1] = machines[i]; // machine distante pour ssh
-                arg_ssh[2] = DSMWRAP_PATH; // chemin de dsmwrap supposé connu
+                arg_ssh[2] = dsmwrap_abs_path; // chemin de dsmwrap supposé connu
                 /* dsmwrap args */
                 arg_ssh[3] = current_machine_hostname;
                 arg_ssh[4] = sock_init_port_string;
-                arg_ssh[5] = argv[2]; // programme final à executer
+                arg_ssh[5] = executable_abs_path; // programme final à executer
                 /* program args */
                 for (j = 0; j < (argc-3); ++j)
                     arg_ssh[j+6] = argv[j+3];
@@ -261,7 +273,7 @@ int main(int argc, char *argv[])
                 arg_ssh[j+7]= NULL ; // pour commande execvp
                 /* execution */
                 ++(*num_procs_creat);
-                if(DEBUG) { printf("[dsm|lanceur(fils)] Lancement de dsmwrap (executable=%s) sur %s.\n", argv[2], machines[i]); fflush(stdout); }
+                if(DEBUG) { printf("[dsm|lanceur(fils)] Lancement de dsmwrap (executable=%s) sur %s.\n", executable_abs_path, machines[i]); fflush(stdout); }
                 execvp("ssh", arg_ssh);
                 ERROR_EXIT("execvp");
             } else  if(pid > 0) { /* pere */

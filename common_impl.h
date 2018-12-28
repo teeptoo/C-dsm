@@ -14,15 +14,17 @@
 #include <netdb.h>
 #include <poll.h>
 #include <sys/mman.h>
+#include <limits.h>
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
 
-#define IP_LENGTH 16
+#define IP_LENGTH 16 // IP V4
 #define HOSTNAME_MAX_LENGTH 255 // norme POSIX
-#define PORT_MAX_LENGTH 6 // port maximal est 65535 (16bit non signé)
+#define PORT_LENGTH 6 // port maximal est 65535 (16bit non signé)
 #define BUFFER_LENGTH 512
+#define FILE_NAME_MAX_LENGTH 255 // sur la plupart des systèmes de fichiers
 
 /* definition du type des infos */
 /* de connexion des processus dsm */
