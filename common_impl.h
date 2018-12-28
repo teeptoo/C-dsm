@@ -16,7 +16,7 @@
 #include <sys/mman.h>
 #include <limits.h>
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
 
@@ -28,8 +28,9 @@
 
 /* definition du type des infos */
 /* de connexion des processus dsm */
-struct dsm_proc_conn  {
-    int conn_fd;
+struct dsm_proc_conn {
+    int rang;
+    int fd_dsm;
     char dist_hostname[HOSTNAME_MAX_LENGTH];
     int dist_port;
 };
@@ -38,7 +39,7 @@ typedef struct dsm_proc_conn dsm_proc_conn_t;
 /* definition du type des infos */
 /* d'identification des processus dsm */
 struct dsm_proc {
-    int rang;
+    int fd_init;
     int rang_tubes;
     pid_t pid;
     dsm_proc_conn_t connect_info;
@@ -51,6 +52,8 @@ struct sockaddr_in *creer_sockaddr_in(int port);
 int do_accept(int sock);
 void resolve_hostname(char * hostname , char* ip);
 void send_int(int file_des, int to_send);
-int read_int(int file_des);
-void read_line(int file_des, void *str);
+int recv_int(int file_des);
 void send_line(int file_des, const void *str);
+void recv_line(int file_des, void *str);
+void send_dsm_infos(int fd, dsm_proc_conn_t proc_conn);
+void recv_dsm_infos(int fd, dsm_proc_conn_t * proc_conn);

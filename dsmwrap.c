@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     }
 
     /* réception signal synchro */
-    read_int(sock_init);
+    recv_int(sock_init);
     /* on execute la bonne commande */
     fflush(stdout);
     execvp(argv[3], args_exec);

@@ -3,6 +3,14 @@
 int DSM_NODE_NUM; /* nombre de processus dsm */
 int DSM_NODE_ID;  /* rang (= numero) du processus */ 
 
+dsm_proc_conn_t * dsm_conn_array = NULL; /* tableau contenant toutes les infos de connexion des processus dsm */
+
+void copy_dsm_conn(dsm_proc_conn_t * dest, dsm_proc_conn_t * src) {
+    dest->rang = src->rang;
+    strcpy(dest->dist_hostname, src->dist_hostname);
+    dest->dist_port = src->dist_port;
+}
+
 /* indique l'adresse de debut de la page de numero numpage */
 static char *num2address( int numpage ) {
    char *pointer = (char *)(BASE_ADDR+(numpage*(PAGE_SIZE)));
@@ -133,19 +141,41 @@ static void segv_handler(int sig, siginfo_t *info, void *context)
 char *dsm_init(int argc, char **argv)
 {   
    struct sigaction act;
-   int index;   
+   int index;
+
+   int i;
+   int sock_init = 3; // hérité des descripteurs de fichiers de dsmwrap
+   int sock_dsm = 4; // hérité des descripteurs de fichiers de dsmwrap
+   dsm_proc_conn_t dsm_conn_temp;
    
    /* reception du nombre de processus dsm envoye */
    /* par le lanceur de programmes (DSM_NODE_NUM)*/
+   DSM_NODE_NUM = recv_int(sock_init);
    
    /* reception de mon numero de processus dsm envoye */
    /* par le lanceur de programmes (DSM_NODE_ID)*/
-   
+   DSM_NODE_ID = recv_int(sock_init);
+
    /* reception des informations de connexion des autres */
    /* processus envoyees par le lanceur : */
    /* nom de machine, numero de port, etc. */
-   
-   /* initialisation des connexions */ 
+    dsm_conn_array = malloc(sizeof(dsm_proc_conn_t)*(DSM_NODE_NUM-1));
+    memset(dsm_conn_array, 0, sizeof(dsm_proc_conn_t)*(DSM_NODE_NUM-1));
+    for (i = 0; i < (DSM_NODE_NUM-1); ++i) {
+        memset(&dsm_conn_temp, 0, sizeof(dsm_proc_conn_t));
+        recv_dsm_infos(sock_init, &dsm_conn_temp);
+        copy_dsm_conn(&dsm_conn_array[i], &dsm_conn_temp);
+    }
+
+    if(DEBUG) {
+        printf("Tableau des infos connexion pour Proc %d :\n", DSM_NODE_ID);
+        for (i = 0; i < (DSM_NODE_NUM-1); ++i)
+            printf("\trang=%d\t port=%d\t hostname=%s\n", dsm_conn_array[i].rang,
+                    dsm_conn_array[i].dist_port,
+                    dsm_conn_array[i].dist_hostname);
+    }
+
+    /* initialisation des connexions */
    /* avec les autres processus : connect/accept */
    
    /* Allocation des pages en tourniquet */
@@ -172,6 +202,9 @@ char *dsm_init(int argc, char **argv)
 void dsm_finalize( void )
 {
    /* fermer proprement les connexions avec les autres processus */
+
+   /* free */
+   free(dsm_conn_array);
 
    /* terminer correctement le thread de communication */
    /* pour le moment, on peut faire : */

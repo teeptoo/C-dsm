@@ -32,11 +32,20 @@ void force_abs_path(char * path, char * abs_path) {
 void sigchld_handler(int sig) {
     /* on traite les fils qui se terminent */
     /* pour eviter les zombies */
-    int ret_wait;
+    pid_t ret_wait;
     do {
         ret_wait = waitpid((pid_t) -1, NULL, WNOHANG);
+        if((-1 == ret_wait) && (errno != ECHILD)) { ERROR_EXIT("waitpid (handler)"); }
     } while(ret_wait > 0);
-    if((-1 == ret_wait) && (errno != ECHILD)) { ERROR_EXIT("waitpid"); }
+}
+
+void wait_all(int num_procs) {
+    int i;
+    pid_t wait_ret;
+    for (i = 0; i < num_procs; ++i) {
+        wait_ret = waitpid(dsm_array[i].pid, NULL, WNOHANG);
+        if((-1 == wait_ret) && (errno != ECHILD)) { ERROR_EXIT("waitpid"); }
+    }
 }
 
 int count_lines(FILE * file) {
@@ -129,7 +138,7 @@ int get_rank_from_hostname_available(char * hostname, int num_procs) {
     int i, result_comp;
     for (i = 0; i < num_procs; ++i) {
         result_comp = strncmp(hostname, dsm_array[i].connect_info.dist_hostname, strlen(hostname)+1);
-        if((0 == result_comp) && (0 == dsm_array[i].connect_info.conn_fd))
+        if((0 == result_comp) && (0 == dsm_array[i].fd_init))
             return i;
     }
     ERROR_EXIT("get_rank_from_hostname_available"); // incohérence dans dsm_array
@@ -139,7 +148,7 @@ int rang_tubes_to_rang(int rang_tube, int num_procs) {
     int i;
     for (i = 0; i < num_procs; ++i) {
         if(dsm_array[i].rang_tubes == rang_tube)
-            return dsm_array[i].rang;
+            return dsm_array[i].connect_info.rang;
     }
     ERROR_EXIT("rang_tubes_to_rang"); // incohérence dans dsm_array
 }
@@ -147,7 +156,7 @@ int rang_tubes_to_rang(int rang_tube, int num_procs) {
 void close_fds_dsm_procs(int num_procs) {
     int i;
     for (i = 0; i < num_procs; ++i)
-        close(dsm_array[i].connect_info.conn_fd);
+        close(dsm_array[i].fd_init);
 }
 
 int main(int argc, char *argv[])
@@ -293,23 +302,23 @@ int main(int argc, char *argv[])
             /* 1- d'abord la taille de la chaine */
             /* 2- puis la chaine elle-meme */
             memset(hostname_temp, 0, HOSTNAME_MAX_LENGTH);
-            read_line(fd_temp, hostname_temp);
+            recv_line(fd_temp, hostname_temp);
 
             /* On affecte un rang définitif au processus  et on remplit dsm_array */
             rang_temp = get_rank_from_hostname_available(hostname_temp, num_procs);
-            dsm_array[rang_temp].rang = rang_temp;
-            dsm_array[rang_temp].connect_info.conn_fd = fd_temp;
+            dsm_array[rang_temp].connect_info.rang = rang_temp;
+            dsm_array[rang_temp].fd_init = fd_temp;
 
             /* On recupere le pid du processus distant  */
-            dsm_array[rang_temp].pid = read_int(fd_temp);
+            dsm_array[rang_temp].pid = recv_int(fd_temp);
 
             /* On recupere le numero de port de la socket */
             /* d'ecoute des processus distants */
-            dsm_array[rang_temp].connect_info.dist_port = read_int(fd_temp);
+            dsm_array[rang_temp].connect_info.dist_port = recv_int(fd_temp);
 
             if(DEBUG) {
                 printf("[dsm|lanceur] Rang=%d, Hostname=%s, PID distant=%d, Port dsm=%d.\n",
-                        dsm_array[i].rang,
+                        dsm_array[i].connect_info.rang,
                         dsm_array[i].connect_info.dist_hostname,
                         dsm_array[i].pid,
                         dsm_array[i].connect_info.dist_port);
@@ -317,15 +326,24 @@ int main(int argc, char *argv[])
             }
         }
 
-        /* envoi signal synchro */
-        for(i = 0; i < num_procs ; i++)
-            send_int(dsm_array[i].connect_info.conn_fd, 0);
+        for(i = 0; i < num_procs ; i++) {
+            /* envoi signal synchro */
+            send_int(dsm_array[i].fd_init, 0);
 
-        /* envoi du nombre de processus aux processus dsm*/
+            /* envoi du nombre de processus aux processus dsm*/
+            send_int(dsm_array[i].fd_init, num_procs);
 
-        /* envoi des rangs aux processus dsm */
+            /* envoi des rangs aux processus dsm */
+            send_int(dsm_array[i].fd_init, dsm_array[i].connect_info.rang);
 
-        /* envoi des infos de connexion aux processus */
+            /* envoi des infos de connexion aux processus */
+            /* sauf ses propres infos */
+            for (j = 0; j < num_procs; ++j) {
+             if(dsm_array[j].connect_info.rang != dsm_array[i].connect_info.rang)
+                 send_dsm_infos(dsm_array[i].fd_init ,dsm_array[j].connect_info);
+            }
+        }
+
 
         /* gestion des E/S : on recupere les caracteres */
         /* sur les tubes de redirection de stdout/stderr */
@@ -392,6 +410,10 @@ int main(int argc, char *argv[])
         /* flush des sorties */
         fflush(stdout);
         fflush(stderr);
+
+        /* on attend les processus fils */
+        /* qui n'auraient pas déjà été pris en compte par le signal handler */
+        wait_all(num_procs);
 
         /* on ferme les descripteurs proprement */
         close_tous_tubes_lecture(tubes_stdout, num_procs);

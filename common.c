@@ -84,7 +84,7 @@ void send_int(int file_des, int to_send) {
     } while(left > 0);
 }
 
-int read_int(int file_des) {
+int recv_int(int file_des) {
     // inspiré de la réponse de garlix (https://stackoverflow.com/questions/9140409/transfer-integer-over-a-socket-in-c)
     int32_t received; // received raw data
     int left=sizeof(received);
@@ -99,21 +99,6 @@ int read_int(int file_des) {
         }
     } while (left>0);
     return (int)received;
-}
-
-void read_line(int file_des, void *str) {
-    // Reading the length of the string to receive
-    int left = read_int(file_des);
-    // Receive the string
-    int read_count = 0;
-    do {
-        read_count = read(file_des, str, left); // writing directly into the buffer
-        if((read_count == -1) && (errno != EAGAIN) && (errno != EINTR)) { ERROR_EXIT("read"); }
-        else {
-            str += read_count;
-            left -= read_count;
-        }
-    } while (left>0);
 }
 
 void send_line(int file_des, const void *str) {
@@ -131,6 +116,33 @@ void send_line(int file_des, const void *str) {
             left -= read_count;
         }
     } while(left > 0);
+}
+
+void recv_line(int file_des, void *str) {
+    // Reading the length of the string to receive
+    int left = recv_int(file_des);
+    // Receive the string
+    int read_count = 0;
+    do {
+        read_count = read(file_des, str, left); // writing directly into the buffer
+        if((read_count == -1) && (errno != EAGAIN) && (errno != EINTR)) { ERROR_EXIT("read"); }
+        else {
+            str += read_count;
+            left -= read_count;
+        }
+    } while (left>0);
+}
+
+void send_dsm_infos(int fd, dsm_proc_conn_t proc_conn) {
+    send_int(fd, proc_conn.rang);
+    send_line(fd, proc_conn.dist_hostname);
+    send_int(fd, proc_conn.dist_port);
+}
+
+void recv_dsm_infos(int fd, dsm_proc_conn_t * proc_conn) {
+    proc_conn->rang = recv_int(fd);
+    recv_line(fd, proc_conn->dist_hostname);
+    proc_conn->dist_port = recv_int(fd);
 }
 
 
