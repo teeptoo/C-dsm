@@ -10,7 +10,8 @@ add_executable(PR204_cmake
         dsm.h
         dsmexec.c
         dsmwrap.c
-        exemple.c)
+        exemple.c
+        exemple_init_finalize.c)
 
 add_custom_target(PR204 COMMAND make clean -C ${PR204_SOURCE_DIR}
         COMMAND make -C ${PR204_SOURCE_DIR}
