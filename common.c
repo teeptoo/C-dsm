@@ -22,6 +22,17 @@ int creer_socket(int *port_num) {
     return sock;
 }
 
+void set_cloexec_flag(int desc) {
+    // inspiré de la documentation GNU (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
+    int oldflags = fcntl(desc, F_GETFD, 0);
+    // si erreur dans la lecture des flags
+    if (oldflags < 0)
+        ERROR_EXIT("fcntl (F_GETFD)");
+    // sinon rajout du flag CLOEXEC
+    oldflags |= FD_CLOEXEC;
+    if(-1 == fcntl (desc, F_SETFD, oldflags)) { ERROR_EXIT("fcntl (F_SETFD)"); }
+}
+
 struct sockaddr_in *creer_sockaddr_in(int port) {
     struct sockaddr_in * sock_addr = NULL;
     sock_addr = malloc(sizeof(struct sockaddr_in));
@@ -58,7 +69,7 @@ void resolve_hostname(char * hostname , char* ip) {
 }
 
 void send_int(int file_des, int to_send) {
-    // Inspired by garlix's answer from https://stackoverflow.com/questions/9140409/transfer-integer-over-a-socket-in-c
+    // inspiré de la réponse de garlix (https://stackoverflow.com/questions/9140409/transfer-integer-over-a-socket-in-c)
     int32_t converted_to_send = (int)to_send; // convert the length in a generic type independant from infrastucture for emission over socket
     char * data = (char *)&converted_to_send; // pointer on the remaining converted data to send
     int left = sizeof(converted_to_send);
@@ -74,7 +85,7 @@ void send_int(int file_des, int to_send) {
 }
 
 int read_int(int file_des) {
-    // Inspired by garlix's answer from https://stackoverflow.com/questions/9140409/transfer-integer-over-a-socket-in-c
+    // inspiré de la réponse de garlix (https://stackoverflow.com/questions/9140409/transfer-integer-over-a-socket-in-c)
     int32_t received; // received raw data
     int left=sizeof(received);
     char *data_received = (char *)&received; // pointer on raw data

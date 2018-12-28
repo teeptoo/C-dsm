@@ -222,6 +222,7 @@ int main(int argc, char *argv[])
 
         /* creation de la socket d'ecoute */
         sock_init = creer_socket(&sock_init_port);
+        set_cloexec_flag(sock_init);
         sprintf(sock_init_port_string, "%d", sock_init_port);
 
         /* creation des fils */

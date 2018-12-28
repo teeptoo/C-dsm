@@ -46,6 +46,7 @@ struct dsm_proc {
 typedef struct dsm_proc dsm_proc_t;
 
 int creer_socket(int *port_num);
+void set_cloexec_flag(int desc);
 struct sockaddr_in *creer_sockaddr_in(int port);
 int do_accept(int sock);
 void resolve_hostname(char * hostname , char* ip);
