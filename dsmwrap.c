@@ -72,12 +72,12 @@ int main(int argc, char **argv)
         for (i = 0; i < (argc-4); ++i)
             printf("%s,", argv[i+4]);
         printf(").\n");
-        fflush(stdout);
     }
 
     /* réception signal synchro */
     read_int(sock_init);
     /* on execute la bonne commande */
+    fflush(stdout);
     execvp(argv[3], args_exec);
 
     /* si problème execvp : nettoyage + erreur */
