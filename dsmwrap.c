@@ -14,25 +14,29 @@ int main(int argc, char **argv)
     /* processus intermediaire pour "nettoyer" */
     /* la liste des arguments qu'on va passer */
     /* a la commande a executer vraiment */
-    if(DEBUG) {
-        printf("Args dsmwrap : prog final = %s\n", argv[3]);
-        for (int i = 0; i < (argc-4); ++i)
-            printf("arg[%d]=%s\n", i+4, argv[i+4]);
-    }
 
     /* déclarations */
     struct sockaddr_in sockaddr_dsmexec; // pour la socket d'initialisation
     pid_t pid = getpid();
+    int i;
     int sock_init;
     int sock_dsm;
     int dsmexec_port;
     int dsmwrap_port;
     char dsmexec_ip[IP_LENGTH];
     char dsmwrap_hostname[HOSTNAME_MAX_LENGTH];
+    char * args_exec[argc-2];
 
-    /* traitement des arguments reçus */
+    /* traitement des arguments pour dsmwrap */
     strcpy(dsmwrap_hostname, argv[1]);
     dsmexec_port = atoi(argv[2]);
+
+    /* traitement des arguments pour executable final */
+    memset(args_exec, 0, sizeof(char *) * (argc - 2));
+    args_exec[0] = argv[3];
+    for (i = 0; i < (argc-4); ++i)
+        args_exec[i+1] = argv[i+4];
+    args_exec[i+2] = NULL;
 
     /* remplissage de sockaddr_dsmexec */
     memset(&sockaddr_dsmexec, 0, sizeof(struct sockaddr_in));
@@ -64,19 +68,20 @@ int main(int argc, char **argv)
     send_int(sock_init, dsmwrap_port);
 
     if(DEBUG) {
-        fprintf(stdout, "Bonjour stdout.\n");
-        fprintf(stderr, "Bonjour stderr.\n");
+        printf("[dsm|wrapper] Lancement executable=%s (args=", argv[3]);
+        for (i = 0; i < (argc-4); ++i)
+            printf("%s,", argv[i+4]);
+        printf(").\n");
+        fflush(stdout);
     }
 
+    /* réception signal synchro */
+    read_int(sock_init);
     /* on execute la bonne commande */
-    while(1) {
-        sleep(1);
-        break;
-    }
+    execvp(argv[3], args_exec);
 
+    /* si problème execvp : nettoyage + erreur */
     close(sock_init);
-
-    fflush(stdout);
-    fflush(stderr);
-    exit(EXIT_SUCCESS);
+    close(sock_dsm);
+    ERROR_EXIT("execvp");
 }

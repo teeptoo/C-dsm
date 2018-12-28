@@ -162,7 +162,6 @@ int main(int argc, char *argv[])
         int sock_init_port; // port attribué pour la socket d'initialisation
         int fd_temp; // descripteur de fichier stocké temporairement après le accept
         int rang_temp; // rang temporaire pour les accept et le poll
-        int dsmwrap_argc; // nombres d'arguments après le machine_file + executable
         pid_t pid; // usage temporaire lors de la création des fils
         ssize_t read_count; // compteur lors de lecture avec des fonctions de type read/write
         char current_machine_hostname[HOSTNAME_MAX_LENGTH];
@@ -227,7 +226,6 @@ int main(int argc, char *argv[])
 
             if (pid == 0) { /* fils */
                 /* pré-remplissage de dsm_procs avec affectation des rangs */
-                dsm_array[i].pid = getpid();
                 dsm_array[i].rang_tubes = i;
                 strcpy(dsm_array[i].connect_info.dist_hostname, machines[i]);
 
@@ -257,15 +255,15 @@ int main(int argc, char *argv[])
                 arg_ssh[4] = sock_init_port_string;
                 arg_ssh[5] = argv[2]; // programme final à executer
                 /* program args */
-                for (j = 0; j < (argc-3); ++j) {
+                for (j = 0; j < (argc-3); ++j)
                     arg_ssh[j+6] = argv[j+3];
-                }
                 /* fin args */
                 arg_ssh[j+7]= NULL ; // pour commande execvp
                 /* execution */
                 ++(*num_procs_creat);
+                if(DEBUG) { printf("[dsm|lanceur(fils)] Lancement de dsmwrap (executable=%s) sur %s.\n", argv[2], machines[i]); fflush(stdout); }
                 execvp("ssh", arg_ssh);
-                break;
+                ERROR_EXIT("execvp");
             } else  if(pid > 0) { /* pere */
                 /* fermeture des extremites des tubes non utiles */
                 close(tubes_stdout[i][1]);
@@ -298,13 +296,19 @@ int main(int argc, char *argv[])
             dsm_array[rang_temp].connect_info.dist_port = read_int(fd_temp);
 
             if(DEBUG) {
-                printf("[Debug] Rang=%d, Hostname=%s, PID distant=%d, Port dsm=%d.\n",
+                printf("[dsm|lanceur] Rang=%d, Hostname=%s, PID distant=%d, Port dsm=%d.\n",
                         dsm_array[i].rang,
                         dsm_array[i].connect_info.dist_hostname,
                         dsm_array[i].pid,
                         dsm_array[i].connect_info.dist_port);
+                fflush(stdout);
             }
         }
+
+        /* envoi signal synchro */
+        for(i = 0; i < num_procs ; i++)
+            send_int(dsm_array[i].connect_info.conn_fd, 0);
+
         /* envoi du nombre de processus aux processus dsm*/
 
         /* envoi des rangs aux processus dsm */
@@ -342,20 +346,21 @@ int main(int argc, char *argv[])
                         do {
                             read_count = read(poll_tubes[i].fd, buffer_cursor, BUFFER_LENGTH);
                             buffer_cursor += read_count;
-                        } while ((read_count == -1) && ((errno == EAGAIN) || (errno == EINTR)));
-                        if((read_count == -1)){ ERROR_EXIT("read"); }
+                        } while ((-1 == read_count) && ((errno == EAGAIN) || (errno == EINTR)));
+                        if(-1 == read_count){ ERROR_EXIT("read"); }
 
                         rang_temp = rang_tubes_to_rang(i/2, num_procs);
                         if(i%2) // contenu sur stderr
                             fprintf(stderr, "[stderr|%d|%s] %s", rang_temp, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
                         else // contenu sur stdout
                             fprintf(stdout, "[stdout|%d|%s] %s", rang_temp, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
+
                         fflush(stdout);
+                        fflush(stderr);
                     }
 
                     else if(poll_tubes[i].revents & POLLHUP) {
-                        if(DEBUG) { printf("fermeture tube %i\n", i); }
-                        fflush(stdout);
+                        if(DEBUG) { printf("[dsm|lanceur] Fermeture tube %i.\n", i); fflush(stdout); }
                         poll_tubes[i].fd = -1; // on retire le tube du poll en l'ignorant (norme POSIX)
                     } // end else if POLLHUP
 
