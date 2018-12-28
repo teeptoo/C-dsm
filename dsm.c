@@ -4,10 +4,9 @@ int DSM_NODE_NUM; /* nombre de processus dsm */
 int DSM_NODE_ID;  /* rang (= numero) du processus */ 
 
 /* indique l'adresse de debut de la page de numero numpage */
-static char *num2address( int numpage )
-{ 
+static char *num2address( int numpage ) {
    char *pointer = (char *)(BASE_ADDR+(numpage*(PAGE_SIZE)));
-   
+
    if( pointer >= (char *)TOP_ADDR ){
       fprintf(stderr,"[%i] Invalid address !\n", DSM_NODE_ID);
       return NULL;
@@ -15,9 +14,13 @@ static char *num2address( int numpage )
    else return pointer;
 }
 
+int address2num(char * addr) {
+   return (((long int)(addr-BASE_ADDR))/(PAGE_SIZE));
+}
+
+
 /* fonctions pouvant etre utiles */
-static void dsm_change_info( int numpage, dsm_page_state_t state, dsm_page_owner_t owner)
-{
+static void dsm_change_info( int numpage, dsm_page_state_t state, dsm_page_owner_t owner) {
    if ((numpage >= 0) && (numpage < PAGE_NUMBER)) {	
 	if (state != NO_CHANGE )
 	table_page[numpage].status = state;
@@ -147,9 +150,9 @@ char *dsm_init(int argc, char **argv)
    
    /* Allocation des pages en tourniquet */
    for(index = 0; index < PAGE_NUMBER; index ++){	
-     if ((index % DSM_NODE_NUM) == DSM_NODE_ID)
+     /*if ((index % DSM_NODE_NUM) == DSM_NODE_ID)
        dsm_alloc_page(index);	     
-     dsm_change_info( index, WRITE, index % DSM_NODE_NUM);
+     dsm_change_info( index, WRITE, index % DSM_NODE_NUM);*/
    }
    
    /* mise en place du traitant de SIGSEGV */
@@ -172,6 +175,7 @@ void dsm_finalize( void )
 
    /* terminer correctement le thread de communication */
    /* pour le moment, on peut faire : */
+   sleep(1);
    pthread_cancel(comm_daemon);
    
   return;

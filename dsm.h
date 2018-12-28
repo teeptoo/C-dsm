@@ -1,13 +1,7 @@
 #define _GNU_SOURCE
-#include <stdio.h>
-#include <stdlib.h>
+#include "common_impl.h"
 #include <signal.h>
 #include <pthread.h>
-#include <unistd.h>
-#include <sys/mman.h>
-
-
-
 /* fin des includes */
 
 #define TOP_ADDR    (0x40000000)
