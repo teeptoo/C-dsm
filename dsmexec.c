@@ -32,12 +32,11 @@ void force_abs_path(char * path, char * abs_path) {
 void sigchld_handler(int sig) {
     /* on traite les fils qui se terminent */
     /* pour eviter les zombies */
-    int status;
+    int ret_wait;
     do {
-        waitpid(-1, &status, WNOHANG);
-        --(*num_procs_creat);
-        if(-1 == status) { ERROR_EXIT("waitpid"); }
-    } while(status != 0);
+        ret_wait = waitpid((pid_t) -1, NULL, WNOHANG);
+    } while(ret_wait > 0);
+    if((-1 == ret_wait) && (errno != ECHILD)) { ERROR_EXIT("waitpid"); }
 }
 
 int count_lines(FILE * file) {
@@ -375,6 +374,14 @@ int main(int argc, char *argv[])
                     else if(poll_tubes[i].revents & POLLHUP) {
                         if(DEBUG) { printf("[dsm|lanceur] Fermeture tube %i.\n", i); fflush(stdout); }
                         poll_tubes[i].fd = -1; // on retire le tube du poll en l'ignorant (norme POSIX)
+                        if(i%2) { // puis on vérifie si c'est le dernier des deux tubes, si oui on reduit num_procs_creat
+                            if(-1 == poll_tubes[i-1].fd)
+                                --(*num_procs_creat);
+                        } else {
+                            if(-1 == poll_tubes[i+1].fd)
+                                --(*num_procs_creat);
+                        }
+
                     } // end else if POLLHUP
 
                 } // end for i de 0 à 2*numprocs-1
