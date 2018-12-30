@@ -22,7 +22,7 @@
 
 #define IP_LENGTH 16 // IP V4
 #define HOSTNAME_MAX_LENGTH 255 // norme POSIX
-#define PORT_LENGTH 6 // port maximal est 65535 (16bit non signé)
+#define INT_MAX_LENGTH 6 // port maximal est 65535 (16bit non signé)
 #define BUFFER_LENGTH 512
 #define FILE_NAME_MAX_LENGTH 255 // sur la plupart des systèmes de fichiers
 
@@ -40,7 +40,6 @@ typedef struct dsm_proc_conn dsm_proc_conn_t;
 /* d'identification des processus dsm */
 struct dsm_proc {
     int fd_init;
-    int rang_tubes;
     pid_t pid;
     dsm_proc_conn_t connect_info;
 };

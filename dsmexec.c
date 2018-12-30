@@ -133,26 +133,6 @@ void close_tous_tubes_lecture(int ** tubes, int num_procs) {
         close(tubes[i][0]);
 }
 
-int get_rank_from_hostname_available(char * hostname, int num_procs) {
-    /* Renvoie le rang de la première instance lancée sur hostname qui n'a pas encore de fd affecté */
-    int i, result_comp;
-    for (i = 0; i < num_procs; ++i) {
-        result_comp = strncmp(hostname, dsm_array[i].connect_info.dist_hostname, strlen(hostname)+1);
-        if((0 == result_comp) && (0 == dsm_array[i].fd_init))
-            return i;
-    }
-    ERROR_EXIT("get_rank_from_hostname_available"); // incohérence dans dsm_array
-}
-
-int rang_tubes_to_rang(int rang_tube, int num_procs) {
-    int i;
-    for (i = 0; i < num_procs; ++i) {
-        if(dsm_array[i].rang_tubes == rang_tube)
-            return dsm_array[i].connect_info.rang;
-    }
-    ERROR_EXIT("rang_tubes_to_rang"); // incohérence dans dsm_array
-}
-
 void close_fds_dsm_procs(int num_procs) {
     int i;
     for (i = 0; i < num_procs; ++i)
@@ -178,8 +158,8 @@ int main(int argc, char *argv[])
         char dsmwrap_abs_path[FILE_NAME_MAX_LENGTH];
         char executable_abs_path[FILE_NAME_MAX_LENGTH];
         char current_machine_hostname[HOSTNAME_MAX_LENGTH];
-        char sock_init_port_string[PORT_LENGTH]; // sock_init_port sous forme de chaine
-        char hostname_temp[HOSTNAME_MAX_LENGTH]; // hostname reçu avant remplissage de la structure dsm_array
+        char rang_string[INT_MAX_LENGTH];
+        char sock_init_port_string[INT_MAX_LENGTH]; // sock_init_port sous forme de chaine
         char buffer[BUFFER_LENGTH];
 
         /* récupération du nombre de machines distantes */
@@ -199,7 +179,7 @@ int main(int argc, char *argv[])
         struct pollfd * poll_tubes = NULL;
 
         /* allocations */
-        arg_ssh = malloc(sizeof(char * ) * (argc + 6));
+        arg_ssh = malloc(sizeof(char * ) * (argc + 7));
         machines = malloc(sizeof(char *) * num_procs);
         tubes_stdout = alloc_tubes(num_procs);
         tubes_stderr = alloc_tubes(num_procs);
@@ -246,9 +226,10 @@ int main(int argc, char *argv[])
             if(pid == -1) { ERROR_EXIT("fork"); }
 
             if (pid == 0) { /* fils */
-                /* pré-remplissage de dsm_procs avec affectation des rangs */
-                dsm_array[i].rang_tubes = i;
+                /* pré-remplissage de dsm_array avec affectation du rang */
                 strcpy(dsm_array[i].connect_info.dist_hostname, machines[i]);
+                dsm_array[i].connect_info.rang = i;
+                sprintf(rang_string, "%d", i);
 
                 /* redirection stdout */
                 /* + fermetures stdout des autres processus */
@@ -267,22 +248,23 @@ int main(int argc, char *argv[])
                 /* Creation du tableau d'arguments pour le ssh */
                 /* execv args */
                 if(-1 == gethostname(current_machine_hostname, HOSTNAME_MAX_LENGTH) ) { ERROR_EXIT("gethostname"); }
-                memset(arg_ssh, 0, sizeof(char *) * (argc + 6));
+                memset(arg_ssh, 0, sizeof(char *) * (argc + 7));
                 arg_ssh[0] = "dsmwrap"; // pour commande execvp
                 arg_ssh[1] = machines[i]; // machine distante pour ssh
                 arg_ssh[2] = dsmwrap_abs_path; // chemin de dsmwrap supposé connu
                 /* dsmwrap args */
                 arg_ssh[3] = current_machine_hostname;
                 arg_ssh[4] = sock_init_port_string;
-                arg_ssh[5] = executable_abs_path; // programme final à executer
+                arg_ssh[5] = rang_string; // rang actuel
+                arg_ssh[6] = executable_abs_path; // programme final à executer
                 /* program args */
                 for (j = 0; j < (argc-3); ++j)
-                    arg_ssh[j+6] = argv[j+3];
+                    arg_ssh[j+7] = argv[j+3];
                 /* fin args */
-                arg_ssh[j+7]= NULL ; // pour commande execvp
+                arg_ssh[j+8]= NULL ; // pour commande execvp
                 /* execution */
                 ++(*num_procs_creat);
-                if(DEBUG) { printf("[dsm|lanceur(fils)] Lancement de dsmwrap (executable=%s) sur %s.\n", executable_abs_path, machines[i]); fflush(stdout); }
+                if(DEBUG) { printf("[dsm|lanceur(fils)] Lancement de dsmwrap sur %s.\n", machines[i]); fflush(stdout); }
                 execvp("ssh", arg_ssh);
                 ERROR_EXIT("execvp");
             } else  if(pid > 0) { /* pere */
@@ -298,15 +280,10 @@ int main(int argc, char *argv[])
             /* on accepte les connexions des processus dsm */
             fd_temp = do_accept(sock_init);
 
-            /*  On recupere le nom de la machine distante */
-            /* 1- d'abord la taille de la chaine */
-            /* 2- puis la chaine elle-meme */
-            memset(hostname_temp, 0, HOSTNAME_MAX_LENGTH);
-            recv_line(fd_temp, hostname_temp);
+            /* On recupere le rang du processus qui vient de se connecter */
+            rang_temp = recv_int(fd_temp);
 
-            /* On affecte un rang définitif au processus  et on remplit dsm_array */
-            rang_temp = get_rank_from_hostname_available(hostname_temp, num_procs);
-            dsm_array[rang_temp].connect_info.rang = rang_temp;
+            /* On remplit dsm_array */
             dsm_array[rang_temp].fd_init = fd_temp;
 
             /* On recupere le pid du processus distant  */
@@ -318,10 +295,10 @@ int main(int argc, char *argv[])
 
             if(DEBUG) {
                 printf("[dsm|lanceur] Rang=%d, Hostname=%s, PID distant=%d, Port dsm=%d.\n",
-                        dsm_array[i].connect_info.rang,
-                        dsm_array[i].connect_info.dist_hostname,
-                        dsm_array[i].pid,
-                        dsm_array[i].connect_info.dist_port);
+                        dsm_array[rang_temp].connect_info.rang,
+                        dsm_array[rang_temp].connect_info.dist_hostname,
+                        dsm_array[rang_temp].pid,
+                        dsm_array[rang_temp].connect_info.dist_port);
                 fflush(stdout);
             }
         }
@@ -379,11 +356,10 @@ int main(int argc, char *argv[])
                         } while ((-1 == read_count) && ((errno == EAGAIN) || (errno == EINTR)));
                         if(-1 == read_count){ ERROR_EXIT("read"); }
 
-                        rang_temp = rang_tubes_to_rang(i/2, num_procs);
                         if(i%2) // contenu sur stderr
-                            fprintf(stderr, "[stderr|%d|%s] %s", rang_temp, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
+                            fprintf(stderr, "[stderr|%d|%s] %s", i/2, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
                         else // contenu sur stdout
-                            fprintf(stdout, "[stdout|%d|%s] %s", rang_temp, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
+                            fprintf(stdout, "[stdout|%d|%s] %s", i/2, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
 
                         fflush(stdout);
                         fflush(stderr);
