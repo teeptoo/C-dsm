@@ -145,7 +145,6 @@ char *dsm_init(int argc, char **argv)
 
    struct sockaddr_in sockaddr_dsm;
    char dsm_temp_ip[IP_LENGTH];
-   int rang_temp;
    int i;
    int sock_init = 3; // hérité des descripteurs de fichiers de dsmwrap
    int sock_dsm = 4; // hérité des descripteurs de fichiers de dsmwrap
@@ -239,7 +238,15 @@ char *dsm_init(int argc, char **argv)
 
 void dsm_finalize( void )
 {
-   /* fermer proprement les connexions avec les autres processus */
+   int i;
+   int sock_dsm = 4; // hérité depuis dsmwrap
+
+    /* fermer proprement les connexions avec les autres processus */
+    for (i = 0; i < DSM_NODE_NUM; ++i) {
+        if(i != DSM_NODE_ID)
+            close(dsm_conn_array[i].fd_dsm);
+    }
+    close(sock_dsm);
 
    /* free */
    free(dsm_conn_array);
