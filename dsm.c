@@ -143,6 +143,9 @@ char *dsm_init(int argc, char **argv)
    struct sigaction act;
    int index;
 
+   struct sockaddr_in sockaddr_dsm;
+   char dsm_temp_ip[IP_LENGTH];
+   int rang_temp;
    int i;
    int sock_init = 3; // hérité des descripteurs de fichiers de dsmwrap
    int sock_dsm = 4; // hérité des descripteurs de fichiers de dsmwrap
@@ -159,27 +162,59 @@ char *dsm_init(int argc, char **argv)
    /* reception des informations de connexion des autres */
    /* processus envoyees par le lanceur : */
    /* nom de machine, numero de port, etc. */
-    dsm_conn_array = malloc(sizeof(dsm_proc_conn_t)*(DSM_NODE_NUM-1));
-    memset(dsm_conn_array, 0, sizeof(dsm_proc_conn_t)*(DSM_NODE_NUM-1));
-    for (i = 0; i < (DSM_NODE_NUM-1); ++i) {
-        memset(&dsm_conn_temp, 0, sizeof(dsm_proc_conn_t));
-        recv_dsm_infos(sock_init, &dsm_conn_temp);
-        copy_dsm_conn(&dsm_conn_array[i], &dsm_conn_temp);
+    dsm_conn_array = malloc(sizeof(dsm_proc_conn_t) * DSM_NODE_NUM);
+    memset(dsm_conn_array, 0, sizeof(dsm_proc_conn_t) * DSM_NODE_NUM);
+    for (i = 0; i < DSM_NODE_NUM; ++i) { // on ne reçoit pas nos propres infos
+        if(i != DSM_NODE_ID) {
+            memset(&dsm_conn_temp, 0, sizeof(dsm_proc_conn_t));
+            recv_dsm_infos(sock_init, &dsm_conn_temp);
+            copy_dsm_conn(&dsm_conn_array[i], &dsm_conn_temp);
+        }
     }
 
     if(DEBUG_PHASE1) {
         printf("Tableau des infos connexion pour Proc %d :\n", DSM_NODE_ID);
-        for (i = 0; i < (DSM_NODE_NUM-1); ++i)
-            printf("\trang=%d\t port=%d\t hostname=%s\n", dsm_conn_array[i].rang,
-                    dsm_conn_array[i].dist_port,
-                    dsm_conn_array[i].dist_hostname);
-    }
+        for (i = 0; i < DSM_NODE_NUM; ++i) {
+            if (i != DSM_NODE_ID) {
+                printf("\trang=%d\t port=%d\t hostname=%s\n", dsm_conn_array[i].rang,
+                       dsm_conn_array[i].dist_port,
+                       dsm_conn_array[i].dist_hostname);
+            } // end if
+        } // end for
+    } // end if DEBUG
 
     /* fermeture socket d'initialisation */
     close(sock_init);
 
     /* initialisation des connexions */
    /* avec les autres processus : connect/accept */
+
+   /* listen */
+    if(-1 == listen(sock_dsm, DSM_NODE_ID)) { ERROR_EXIT("listen"); }
+
+    /* accept de tous les rangs supérieurs */
+    for (i = DSM_NODE_ID-1; i >= 0; --i) {
+        dsm_conn_array[i].fd_dsm = do_accept(sock_dsm);
+        if(DEBUG_PHASE2) { printf("Accept depuis %d réussi.\n", i); }
+    }
+
+   /* connect "num_procs-rang" fois */
+   for (i = DSM_NODE_ID+1; i <= DSM_NODE_NUM-1; ++i) {
+       /* création socket*/
+       dsm_conn_array[i].fd_dsm = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+       if(-1 == dsm_conn_array[i].fd_dsm) { ERROR_EXIT("socket"); }
+
+       /* remplissage sockaddr_in */
+       memset(&sockaddr_dsm, 0, sizeof(struct sockaddr_in));
+       sockaddr_dsm.sin_family = AF_INET;
+       resolve_hostname(dsm_conn_array[i].dist_hostname, dsm_temp_ip);
+       inet_aton(dsm_temp_ip, &sockaddr_dsm.sin_addr);
+       sockaddr_dsm.sin_port = htons(dsm_conn_array[i].dist_port);
+
+       /* connect */
+       if(-1 == connect(dsm_conn_array[i].fd_dsm, (struct sockaddr *)&sockaddr_dsm, sizeof(struct sockaddr_in))) { ERROR_EXIT("connect"); }
+       if(DEBUG_PHASE2) { printf("Connect vers Proc%d réussi.\n", i); }
+   }
    
    /* Allocation des pages en tourniquet */
    for(index = 0; index < PAGE_NUMBER; index ++){	

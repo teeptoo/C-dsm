@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
         int sock_init; // socket d'initialisation
         int sock_init_port; // port attribué pour la socket d'initialisation
         int fd_temp; // descripteur de fichier stocké temporairement après le accept
-        int rang_temp; // rang temporaire pour les accept et le poll
+        int rang_temp; // rang temporaire pour les accept
         pid_t pid; // usage temporaire lors de la création des fils
         ssize_t read_count; // compteur lors de lecture avec des fonctions de type read/write
         char dsmwrap_abs_path[FILE_NAME_MAX_LENGTH];
