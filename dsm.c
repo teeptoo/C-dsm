@@ -172,7 +172,7 @@ char *dsm_init(int argc, char **argv)
     }
 
     if(DEBUG_PHASE1) {
-        printf("Tableau des infos connexion pour Proc %d :\n", DSM_NODE_ID);
+        printf("%s{dsm_init} Tableau des infos connexion pour Proc %d :\n", COLOR_MAGENTA, DSM_NODE_ID);
         for (i = 0; i < DSM_NODE_NUM; ++i) {
             if (i != DSM_NODE_ID) {
                 printf("\trang=%d\t port=%d\t hostname=%s\n", dsm_conn_array[i].rang,
@@ -180,6 +180,8 @@ char *dsm_init(int argc, char **argv)
                        dsm_conn_array[i].dist_hostname);
             } // end if
         } // end for
+        printf("%s", COLOR_RESET);
+        fflush(stdout);
     } // end if DEBUG
 
     /* fermeture socket d'initialisation */
@@ -187,33 +189,39 @@ char *dsm_init(int argc, char **argv)
 
     /* initialisation des connexions */
    /* avec les autres processus : connect/accept */
-
-   /* listen */
-    if(-1 == listen(sock_dsm, DSM_NODE_ID)) { ERROR_EXIT("listen"); }
+    /* listen */
+    if (-1 == listen(sock_dsm, DSM_NODE_ID)) {ERROR_EXIT("listen"); }
 
     /* accept de tous les rangs supérieurs */
-    for (i = DSM_NODE_ID-1; i >= 0; --i) {
+    for (i = DSM_NODE_ID - 1; i >= 0; --i) {
         dsm_conn_array[i].fd_dsm = do_accept(sock_dsm);
-        if(DEBUG_PHASE2) { printf("Accept depuis %d réussi.\n", i); }
+        if (DEBUG_PHASE2) {
+            printf("%s{dsm_init} Accept depuis %d réussi.\n%s", COLOR_MAGENTA, i, COLOR_RESET);
+            fflush(stdout);
+        }
     }
 
-   /* connect "num_procs-rang" fois */
-   for (i = DSM_NODE_ID+1; i <= DSM_NODE_NUM-1; ++i) {
-       /* création socket*/
-       dsm_conn_array[i].fd_dsm = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-       if(-1 == dsm_conn_array[i].fd_dsm) { ERROR_EXIT("socket"); }
+    /* connect "num_procs-rang" fois */
+    for (i = DSM_NODE_ID + 1; i <= DSM_NODE_NUM - 1; ++i) {
+        /* création socket*/
+        dsm_conn_array[i].fd_dsm = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (-1 == dsm_conn_array[i].fd_dsm) {ERROR_EXIT("socket"); }
 
-       /* remplissage sockaddr_in */
-       memset(&sockaddr_dsm, 0, sizeof(struct sockaddr_in));
-       sockaddr_dsm.sin_family = AF_INET;
-       resolve_hostname(dsm_conn_array[i].dist_hostname, dsm_temp_ip);
-       inet_aton(dsm_temp_ip, &sockaddr_dsm.sin_addr);
-       sockaddr_dsm.sin_port = htons(dsm_conn_array[i].dist_port);
+        /* remplissage sockaddr_in */
+        memset(&sockaddr_dsm, 0, sizeof(struct sockaddr_in));
+        sockaddr_dsm.sin_family = AF_INET;
+        resolve_hostname(dsm_conn_array[i].dist_hostname, dsm_temp_ip);
+        inet_aton(dsm_temp_ip, &sockaddr_dsm.sin_addr);
+        sockaddr_dsm.sin_port = htons(dsm_conn_array[i].dist_port);
 
-       /* connect */
-       if(-1 == connect(dsm_conn_array[i].fd_dsm, (struct sockaddr *)&sockaddr_dsm, sizeof(struct sockaddr_in))) { ERROR_EXIT("connect"); }
-       if(DEBUG_PHASE2) { printf("Connect vers Proc%d réussi.\n", i); }
-   }
+        /* connect */
+        if (-1 == connect(dsm_conn_array[i].fd_dsm, (struct sockaddr *) &sockaddr_dsm,
+                          sizeof(struct sockaddr_in))) {ERROR_EXIT("connect"); }
+        if (DEBUG_PHASE2) {
+            printf("%s{dsm_init} Connect vers Proc%d réussi.\n%s", COLOR_MAGENTA, i, COLOR_RESET);
+            fflush(stdout);
+        }
+    }
    
    /* Allocation des pages en tourniquet */
    for(index = 0; index < PAGE_NUMBER; index ++){	
@@ -246,7 +254,7 @@ void dsm_finalize( void )
         if(i != DSM_NODE_ID)
             close(dsm_conn_array[i].fd_dsm);
     }
-    close(sock_dsm);
+    if(-1 == close(sock_dsm)) { ERROR_EXIT("close(sock_dsm)"); }
 
    /* free */
    free(dsm_conn_array);

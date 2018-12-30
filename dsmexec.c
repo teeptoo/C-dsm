@@ -19,7 +19,7 @@ int * num_procs_creat = NULL;
 
 // Informe l'utilisateur sur les arguments nécessaires pour la dsm
 void usage(void) {
-    fprintf(stdout,"Usage : dsmexec machine_file executable arg1 arg2 ...\n");
+    fprintf(stdout,"%sUsage : dsmexec machine_file executable arg1 arg2 ...\n%s", COLOR_RED, COLOR_RESET);
     fflush(stdout);
     exit(EXIT_FAILURE);
 }
@@ -336,7 +336,10 @@ int main(int argc, char *argv[])
 
                 // execution
                 ++(*num_procs_creat);
-                if(DEBUG_PHASE1) { printf("[dsm|lanceur(fils)] Lancement de dsmwrap sur %s.\n", machines[i]); fflush(stdout); }
+                if(DEBUG_PHASE1) {
+                    printf("%s{dsmexec (fils)} Lancement de dsmwrap sur %s.\n%s", COLOR_YELLOW, machines[i], COLOR_RESET);
+                    fflush(stdout);
+                }
                 execvp("ssh", arg_ssh);
                 ERROR_EXIT("execvp");
 
@@ -374,11 +377,11 @@ int main(int argc, char *argv[])
             dsm_array[rang_temp].connect_info.dist_port = recv_int(fd_temp);
 
             if(DEBUG_PHASE1) {
-                printf("[dsm|lanceur] Rang=%d, Hostname=%s, PID distant=%d, Port dsm=%d.\n",
+                printf("%s{dsmexec} Rang=%d, Hostname=%s, PID distant=%d, Port dsm=%d.\n%s", COLOR_YELLOW,
                         dsm_array[rang_temp].connect_info.rang,
                         dsm_array[rang_temp].connect_info.dist_hostname,
                         dsm_array[rang_temp].pid,
-                        dsm_array[rang_temp].connect_info.dist_port);
+                        dsm_array[rang_temp].connect_info.dist_port, COLOR_RESET);
                 fflush(stdout);
             } // end if DEBUG
         } // end for
@@ -453,16 +456,25 @@ int main(int argc, char *argv[])
                         if(-1 == read_count){ ERROR_EXIT("read"); }
 
                         if(i%2) // contenu sur stderr
-                            fprintf(stderr, "[stderr|%d|%s] %s", i/2, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
+                            fprintf(stderr, "%s[stderr|%d|%s] %s%s", COLOR_RED,
+                                    i/2,
+                                    dsm_array[rang_temp].connect_info.dist_hostname,
+                                    buffer, COLOR_RESET);
                         else // contenu sur stdout
-                            fprintf(stdout, "[stdout|%d|%s] %s", i/2, dsm_array[rang_temp].connect_info.dist_hostname, buffer);
+                            fprintf(stdout, "[stdout|%d|%s] %s",
+                                    i/2,
+                                    dsm_array[rang_temp].connect_info.dist_hostname,
+                                    buffer);
 
                         fflush(stdout);
                         fflush(stderr);
                     }
 
                     else if(poll_tubes[i].revents & POLLHUP) { // un tube a été fermé
-                        if(DEBUG_PHASE1) { printf("[dsm|lanceur] Fermeture tube %i.\n", i); fflush(stdout); }
+                        if(DEBUG_PHASE1) {
+                            printf("%s{dsmexec} Fermeture tube %i.\n%s", COLOR_YELLOW, i, COLOR_RESET);
+                            fflush(stdout);
+                        }
                         poll_tubes[i].fd = -1; // on retire le tube du poll en l'ignorant (norme POSIX)
 
                         if(i%2) { // puis on vérifie si c'est le dernier des deux tubes, si oui on reduit num_procs_creat

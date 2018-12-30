@@ -79,10 +79,10 @@ int main(int argc, char **argv)
     send_int(sock_init, dsmwrap_port);
 
     if(DEBUG_PHASE1) {
-        printf("[dsm|wrapper] Lancement executable=%s (args=", argv[4]);
+        printf("%s{dsmwrap} Lancement executable=%s (args=", COLOR_GREEN, argv[4]);
         for (i = 0; i < (argc-5); ++i)
             printf("%s,", args_exec[i+1]);
-        printf(").\n");
+        printf(").\n%s", COLOR_RESET);
     }
 
     // Réception signal synchro (appel bloquant)

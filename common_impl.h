@@ -46,7 +46,7 @@
 #define COLOR_BLUE      "\x1b[34m"
 #define COLOR_MAGENTA   "\x1b[35m"
 #define COLOR_CYAN      "\x1b[36m"
-#define RESET           "\x1b[0m"
+#define COLOR_RESET     "\x1b[0m"
 
 /* ************************************************************ */
 /* Définition des infos de connexion des processus dsm          */
