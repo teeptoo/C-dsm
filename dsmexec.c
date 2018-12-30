@@ -264,7 +264,7 @@ int main(int argc, char *argv[])
                 arg_ssh[j+8]= NULL ; // pour commande execvp
                 /* execution */
                 ++(*num_procs_creat);
-                if(DEBUG) { printf("[dsm|lanceur(fils)] Lancement de dsmwrap sur %s.\n", machines[i]); fflush(stdout); }
+                if(DEBUG_PHASE1) { printf("[dsm|lanceur(fils)] Lancement de dsmwrap sur %s.\n", machines[i]); fflush(stdout); }
                 execvp("ssh", arg_ssh);
                 ERROR_EXIT("execvp");
             } else  if(pid > 0) { /* pere */
@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
             /* d'ecoute des processus distants */
             dsm_array[rang_temp].connect_info.dist_port = recv_int(fd_temp);
 
-            if(DEBUG) {
+            if(DEBUG_PHASE1) {
                 printf("[dsm|lanceur] Rang=%d, Hostname=%s, PID distant=%d, Port dsm=%d.\n",
                         dsm_array[rang_temp].connect_info.rang,
                         dsm_array[rang_temp].connect_info.dist_hostname,
@@ -321,6 +321,9 @@ int main(int argc, char *argv[])
             }
         }
 
+        /* fermeture de la socket d'initialisation */
+        close_fds_dsm_procs(num_procs);
+        close(sock_init);
 
         /* gestion des E/S : on recupere les caracteres */
         /* sur les tubes de redirection de stdout/stderr */
@@ -366,7 +369,7 @@ int main(int argc, char *argv[])
                     }
 
                     else if(poll_tubes[i].revents & POLLHUP) {
-                        if(DEBUG) { printf("[dsm|lanceur] Fermeture tube %i.\n", i); fflush(stdout); }
+                        if(DEBUG_PHASE1) { printf("[dsm|lanceur] Fermeture tube %i.\n", i); fflush(stdout); }
                         poll_tubes[i].fd = -1; // on retire le tube du poll en l'ignorant (norme POSIX)
                         if(i%2) { // puis on vérifie si c'est le dernier des deux tubes, si oui on reduit num_procs_creat
                             if(-1 == poll_tubes[i-1].fd)
@@ -394,10 +397,7 @@ int main(int argc, char *argv[])
         /* on ferme les descripteurs proprement */
         close_tous_tubes_lecture(tubes_stdout, num_procs);
         close_tous_tubes_lecture(tubes_stderr, num_procs);
-        close_fds_dsm_procs(num_procs);
 
-        /* on ferme la socket d'ecoute */
-        close(sock_init);
 
         /* on ferme les autres mallocs */
         free(arg_ssh);

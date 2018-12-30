@@ -167,13 +167,16 @@ char *dsm_init(int argc, char **argv)
         copy_dsm_conn(&dsm_conn_array[i], &dsm_conn_temp);
     }
 
-    if(DEBUG) {
+    if(DEBUG_PHASE1) {
         printf("Tableau des infos connexion pour Proc %d :\n", DSM_NODE_ID);
         for (i = 0; i < (DSM_NODE_NUM-1); ++i)
             printf("\trang=%d\t port=%d\t hostname=%s\n", dsm_conn_array[i].rang,
                     dsm_conn_array[i].dist_port,
                     dsm_conn_array[i].dist_hostname);
     }
+
+    /* fermeture socket d'initialisation */
+    close(sock_init);
 
     /* initialisation des connexions */
    /* avec les autres processus : connect/accept */

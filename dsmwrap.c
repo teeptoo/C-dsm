@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     /* processus dsm */
     send_int(sock_init, dsmwrap_port);
 
-    if(DEBUG) {
+    if(DEBUG_PHASE1) {
         printf("[dsm|wrapper] Lancement executable=%s (args=", argv[4]);
         for (i = 0; i < (argc-5); ++i)
             printf("%s,", args_exec[i+1]);
@@ -68,6 +68,7 @@ int main(int argc, char **argv)
 
     /* réception signal synchro */
     recv_int(sock_init);
+
     /* on execute la bonne commande */
     fflush(stdout);
     execvp(argv[4], args_exec);

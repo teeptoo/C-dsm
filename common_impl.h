@@ -16,7 +16,8 @@
 #include <sys/mman.h>
 #include <limits.h>
 
-#define DEBUG 1
+#define DEBUG_PHASE1 1
+#define DEBUG_PHASE2 1
 
 #define ERROR_EXIT(str) {perror(str);exit(EXIT_FAILURE);}
 
