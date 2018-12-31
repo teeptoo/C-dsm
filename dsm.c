@@ -142,7 +142,7 @@ char *dsm_init(int argc, char **argv)
 {   
    struct sigaction act;
    int index;
-
+   int ret_connect;
    struct sockaddr_in sockaddr_dsm;
    char dsm_temp_ip[IP_LENGTH];
    int i;
@@ -192,7 +192,7 @@ char *dsm_init(int argc, char **argv)
     /* listen */
     if (-1 == listen(sock_dsm, DSM_NODE_ID)) {ERROR_EXIT("listen"); }
 
-    /* accept de tous les rangs supérieurs */
+    /* accept de tous les rangs inférieurs */
     for (i = DSM_NODE_ID - 1; i >= 0; --i) {
         dsm_conn_array[i].fd_dsm = do_accept(sock_dsm);
         if (DEBUG_PHASE2) {
@@ -215,8 +215,13 @@ char *dsm_init(int argc, char **argv)
         sockaddr_dsm.sin_port = htons(dsm_conn_array[i].dist_port);
 
         /* connect */
-        if (-1 == connect(dsm_conn_array[i].fd_dsm, (struct sockaddr *) &sockaddr_dsm,
-                          sizeof(struct sockaddr_in))) {ERROR_EXIT("connect"); }
+        do{
+            ret_connect = connect(dsm_conn_array[i].fd_dsm,
+                              (struct sockaddr *) &sockaddr_dsm,
+                              sizeof(struct sockaddr_in));
+        } while((-1 == ret_connect) && (errno == ECONNREFUSED));
+        if(-1 == ret_connect) { ERROR_EXIT("connect"); }
+
         if (DEBUG_PHASE2) {
             printf("%s{dsm_init} Connect vers Proc%d réussi.\n%s", COLOR_MAGENTA, i, COLOR_RESET);
             fflush(stdout);
