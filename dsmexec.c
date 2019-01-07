@@ -458,12 +458,12 @@ int main(int argc, char *argv[])
                         if(i%2) // contenu sur stderr
                             fprintf(stderr, "%s[stderr|%d|%s] %s%s", COLOR_RED,
                                     i/2,
-                                    dsm_array[rang_temp].connect_info.dist_hostname,
+                                    dsm_array[i/2].connect_info.dist_hostname,
                                     buffer, COLOR_RESET);
                         else // contenu sur stdout
                             fprintf(stdout, "[stdout|%d|%s] %s",
                                     i/2,
-                                    dsm_array[rang_temp].connect_info.dist_hostname,
+                                    dsm_array[i/2].connect_info.dist_hostname,
                                     buffer);
 
                         fflush(stdout);
