@@ -157,18 +157,20 @@ static void *dsm_comm_daemon( void *arg)
             poll_sockets[i].fd = dsm_conn_array[i].fd_dsm;
     }
 
-    while (dsm_state == RUNNING) {
+    while (1) {
         do {
             ret_poll = poll(poll_sockets, (nfds_t)DSM_NODE_NUM, 500);
-            if(DEBUG_PHASE2 && (ret_poll == 0)) {
+        /*    if(DEBUG_PHASE2 && (ret_poll == 0)) {
                 printf("%sWaiting for incoming reqs.%s\n",
                        COLOR_MAGENTA, COLOR_RESET);
                 fflush(stdout);
             }
+            }*/
         } while ((ret_poll == -1) && (errno == EINTR));
 
         if(ret_poll>0) {
             for (i = 0; i < DSM_NODE_NUM; ++i) {
+            for (i = 0; i < DSM_NODE_NUM+1; ++i) {
                 if(poll_sockets[i].revents & POLLIN) {
 
                     request_type = recv_int(poll_sockets[i].fd);
@@ -194,6 +196,9 @@ static void *dsm_comm_daemon( void *arg)
                             }
                             dsm_recv_page_request(i);
                             break;
+                        default :
+                        printf("Une requete imcompréhensible\n");
+                        fflush(stdout);
                     }
 
                 } else if(poll_sockets[i].revents & POLLHUP) {
@@ -241,13 +246,12 @@ static void segv_handler(int sig, siginfo_t *info, void *context)
     if ((page_addr >= (void *)BASE_ADDR) && (page_addr < (void *)TOP_ADDR))
     {
         if(DEBUG_PHASE2) {
-            printf("%sAccès faulty sur l'adresse %s.\n%s",
-                   COLOR_MAGENTA,
-                   (char *)page_addr,
-                   COLOR_RESET);
+
+            printf("Accès faulty sur l'adresse \n");
             fflush(stdout);
         }
-        //dsm_handler(address2num(page_addr));
+        dsm_handler(address2num(page_addr));
+        sleep(5);
     }
     else
     {
