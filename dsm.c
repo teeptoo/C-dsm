@@ -27,8 +27,6 @@ int address2num(char * addr) {
     return (((long int)(addr-BASE_ADDR))/(PAGE_SIZE));
 }
 
-
-/* fonctions pouvant etre utiles */
 static void dsm_change_info( int numpage, dsm_page_state_t state, dsm_page_owner_t owner) {
     if ((numpage >= 0) && (numpage < PAGE_NUMBER)) {
         if (state != NO_CHANGE )
@@ -37,7 +35,7 @@ static void dsm_change_info( int numpage, dsm_page_state_t state, dsm_page_owner
             table_page[numpage].owner = owner;
     }
     else {
-        fprintf(stderr,"[%i] Invalid page number !\n", DSM_NODE_ID);
+        fprintf(stderr,"Invalid page number !\n");
     }
 }
 
@@ -45,11 +43,6 @@ static dsm_page_owner_t get_owner( int numpage)
 {
     return table_page[numpage].owner;
 }
-
-/* static dsm_page_state_t get_status( int numpage)
-{
-   return table_page[numpage].status;
-}*/
 
 /* Allocation d'une nouvelle page */
 static void dsm_alloc_page( int numpage )
@@ -97,13 +90,14 @@ static void dsm_send_info(int fd, int num_page, int owner) {
 
 static void dsm_send_page(int dest_proc_num, int page) {
     if(DEBUG_PHASE2) {
-        printf("%sEnvoie de la page %i à %i.\n%s",
+        printf("%sEnvoi de la page %i à %i.\n%s",
                COLOR_MAGENTA,
                page,
                dest_proc_num,
                COLOR_RESET);
         fflush(stdout);
     }
+
     void * buffer = malloc(PAGE_SIZE);
     int index;
 
@@ -136,6 +130,7 @@ static void dsm_send_request(int owner_wanted_page, int wanted_page) {
                COLOR_RESET);
         fflush(stdout);
     }
+
     send_int(dsm_conn_array[owner_wanted_page].fd_dsm, PAGE_REQUEST);
     send_int(dsm_conn_array[owner_wanted_page].fd_dsm, wanted_page);
 }
@@ -160,19 +155,11 @@ static void *dsm_comm_daemon( void *arg)
     while (1) {
         do {
             ret_poll = poll(poll_sockets, (nfds_t)DSM_NODE_NUM, 500);
-        /*    if(DEBUG_PHASE2 && (ret_poll == 0)) {
-                printf("%sWaiting for incoming reqs.%s\n",
-                       COLOR_MAGENTA, COLOR_RESET);
-                fflush(stdout);
-            }
-            }*/
         } while ((ret_poll == -1) && (errno == EINTR));
 
         if(ret_poll>0) {
-            for (i = 0; i < DSM_NODE_NUM; ++i) {
             for (i = 0; i < DSM_NODE_NUM+1; ++i) {
                 if(poll_sockets[i].revents & POLLIN) {
-
                     request_type = recv_int(poll_sockets[i].fd);
                     switch(request_type) {
                         case SEND_PAGE: // je reçois une page
@@ -196,9 +183,6 @@ static void *dsm_comm_daemon( void *arg)
                             }
                             dsm_recv_page_request(i);
                             break;
-                        default :
-                        printf("Une requete imcompréhensible\n");
-                        fflush(stdout);
                     }
 
                 } else if(poll_sockets[i].revents & POLLHUP) {
@@ -230,6 +214,7 @@ static void dsm_handler( int faulty_num_page )
 /* traitant de signal adequat */
 static void segv_handler(int sig, siginfo_t *info, void *context)
 {
+
     /* adresse qui a provoque une erreur */
     void  *addr = info->si_addr;
     /*#ifdef __x86_64__
@@ -257,7 +242,9 @@ static void segv_handler(int sig, siginfo_t *info, void *context)
     {
         fprintf(stderr, "Segmentation fault.\n");
         fflush(stderr);
+
         ERROR_EXIT("SIGSEGV");
+
     }
 }
 
@@ -321,6 +308,7 @@ char *dsm_init(int argc, char **argv)
     for (i = DSM_NODE_ID - 1; i >= 0; --i) {
         dsm_conn_array[i].fd_dsm = do_accept(sock_dsm);
         if (DEBUG_PHASE2) {
+
             printf("%s{dsm_init} Accept depuis %d réussi.\n%s", COLOR_MAGENTA, i, COLOR_RESET);
             fflush(stdout);
         }
@@ -347,9 +335,11 @@ char *dsm_init(int argc, char **argv)
         } while((-1 == ret_connect) && (errno == ECONNREFUSED));
         if(-1 == ret_connect) { ERROR_EXIT("connect"); }
 
+
         if (DEBUG_PHASE2) {
             printf("%s{dsm_init} Connect vers Proc%d réussi.\n%s", COLOR_MAGENTA, i, COLOR_RESET);
             fflush(stdout);
+
         }
     }
 
