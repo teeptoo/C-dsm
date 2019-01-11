@@ -10,20 +10,24 @@
 #define BASE_ADDR   (TOP_ADDR - (PAGE_NUMBER * PAGE_SIZE))
 
 typedef enum
-{
-   NO_ACCESS, 
-   READ_ACCESS,
-   WRITE_ACCESS, 
-   UNKNOWN_ACCESS 
-} dsm_page_access_t;
-
-typedef enum
 {   
    INVALID,
-   READ_ONLY,
    WRITE,
    NO_CHANGE  
 } dsm_page_state_t;
+
+typedef enum
+{
+    RUNNING,
+    QUITTING
+} dsm_process_state_t;
+
+typedef enum
+{
+    SEND_PAGE,
+    SEND_INFO,
+    PAGE_REQUEST
+} dsm_message_t;
 
 typedef int dsm_page_owner_t;
 

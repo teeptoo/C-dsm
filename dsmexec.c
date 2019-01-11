@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
         struct sigaction sigchld_sigaction; // pour traitant de signal sur SIGCHILD
         int num_procs = 0; // nombre de processus à créer
         int i, j; // compteurs
-        int ret_pol; // code de retour du poll
+        int ret_poll; // code de retour du poll
         int sock_init; // socket d'initialisation
         int sock_init_port; // port attribué pour la socket d'initialisation
         int fd_temp; // descripteur de fichier stocké temporairement après le accept
@@ -437,11 +437,11 @@ int main(int argc, char *argv[])
         while(*num_procs_creat)
         {
             do {
-                ret_pol = poll(poll_tubes, (nfds_t)2*num_procs, 100);
-            } while ((ret_pol == -1) && (errno == EINTR));
+                ret_poll = poll(poll_tubes, (nfds_t)2*num_procs, 100);
+            } while ((ret_poll == -1) && (errno == EINTR));
 
             // Si activité
-            if (ret_pol > 0) {
+            if (ret_poll > 0) {
                 for (i = 0; i < 2*num_procs; i++) { // pour tous les tubes
 
                     if (poll_tubes[i].revents & POLLIN) { // si on recoit du texte à afficher
@@ -487,8 +487,8 @@ int main(int argc, char *argv[])
                     } // end else if POLLHUP
 
                 } // end for i de 0 à 2*numprocs-1
-            } // end if ret_pol>0
-            else if (-1 == ret_pol) { ERROR_EXIT("poll"); }
+            } // end if ret_poll>0
+            else if (-1 == ret_poll) { ERROR_EXIT("poll"); }
         }; // end while(*num_procs_creat)
 
         /* ************************************************************ */
